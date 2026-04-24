@@ -1,9 +1,10 @@
+import "dotenv/config";
 import app from "./app";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import { initRealtime } from "./controllers/video.controller";
 
-const PORT = 5000;
+const PORT = Number(process.env.PORT ?? 5000);
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
     cors: {
@@ -22,4 +23,14 @@ io.on("connection", (socket) => {
 
 httpServer.listen(PORT, () => {
     console.log(`🚀 Server running on http://localhost:${PORT}`);
+});
+
+httpServer.on("error", (error: NodeJS.ErrnoException) => {
+    if (error.code === "EADDRINUSE") {
+        console.error(
+            `Port ${PORT} is already in use. Stop the other server or set a different PORT in server/.env.`
+        );
+        process.exit(1);
+    }
+    throw error;
 });
