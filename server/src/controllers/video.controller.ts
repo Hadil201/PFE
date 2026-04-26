@@ -12,6 +12,8 @@ interface VideoEntity {
     url: string;
     status: VideoStatus;
     createdAt: string;
+    startTime?: number;
+    endTime?: number;
 }
 
 interface ActionEvent {
@@ -49,6 +51,11 @@ const ACTION_CLASSES = [
     "full-time",
     "dribble",
     "tackle",
+];
+
+const SUMMARIZATION_MODELS = [
+    "summary-v1",
+    "summary-v2",
 ];
 
 let videos: VideoEntity[] = [];
@@ -99,13 +106,19 @@ export const getVideos = (_req: Request, res: Response) => {
 
 export const uploadVideo = (req: Request, res: Response) => {
     const title = String(req.body.title ?? "Uploaded Video");
+    const url = String(req.body.url ?? "");
+    const startTime = Number(req.body.startTime ?? 0);
+    const endTime = Number(req.body.endTime ?? 0);
+
     const video: VideoEntity = {
         _id: Date.now().toString(),
         title,
         source: "upload",
-        url: req.body.url ?? "",
+        url,
         status: "ready",
         createdAt: new Date().toISOString(),
+        startTime,
+        endTime,
     };
 
     videos.push(video);
@@ -149,6 +162,10 @@ export const listActionClasses = (_req: Request, res: Response) => {
     res.json(ACTION_CLASSES);
 };
 
+export const listSummarizationModels = (_req: Request, res: Response) => {
+    res.json(SUMMARIZATION_MODELS);
+};
+
 export const startInference = (req: AuthenticatedRequest, res: Response) => {
     const user = req.appUser;
     if (!user) {
@@ -156,15 +173,17 @@ export const startInference = (req: AuthenticatedRequest, res: Response) => {
         return;
     }
 
-    const { videoId, selectedClasses, modelName, chunkDuration } = req.body as {
+    const { videoId, selectedClasses, modelName, chunkDuration, inferenceType } = req.body as {
         videoId?: string;
         selectedClasses?: string[];
         modelName?: string;
         chunkDuration?: number;
+        inferenceType?: "action-spotting" | "summarization";
     };
 
-    if (!videoId || !Array.isArray(selectedClasses) || selectedClasses.length === 0) {
-        res.status(400).json({ message: "videoId and at least one selected class are required" });
+    const isActionSpotting = inferenceType !== "summarization";
+    if (!videoId || (isActionSpotting && (!Array.isArray(selectedClasses) || selectedClasses.length === 0))) {
+        res.status(400).json({ message: "videoId and at least one selected class are required for action spotting" });
         return;
     }
 
@@ -198,18 +217,26 @@ export const startInference = (req: AuthenticatedRequest, res: Response) => {
         tick += 1;
         const playhead = tick * safeChunkDuration;
 
-        const shouldEmitAction = tick % 2 === 0;
-        if (shouldEmitAction) {
-            const chosen = selectedClasses[Math.floor(Math.random() * selectedClasses.length)] ?? "action";
-            const event: ActionEvent = {
-                id: `${jobId}-${tick}`,
-                label: chosen,
-                start: Math.max(0, playhead - safeChunkDuration),
-                end: playhead,
-                confidence: Number((0.6 + Math.random() * 0.4).toFixed(2)),
-            };
-            events.push(event);
-            ioRef?.emit("inference:event", { jobId, videoId, event });
+        if (isActionSpotting) {
+            const shouldEmitAction = tick % 2 === 0;
+            if (shouldEmitAction) {
+                const chosen = selectedClasses![Math.floor(Math.random() * selectedClasses!.length)] ?? "action";
+                const event: ActionEvent = {
+                    id: `${jobId}-${tick}`,
+                    label: chosen,
+                    start: Math.max(0, playhead - safeChunkDuration),
+                    end: playhead,
+                    confidence: Number((0.6 + Math.random() * 0.4).toFixed(2)),
+                };
+                events.push(event);
+                ioRef?.emit("inference:event", { jobId, videoId, event });
+            }
+        } else {
+            // For summarization, emit summary at the end
+            if (tick === maxTicks) {
+                const summary = "This is a generated summary of the soccer video.";
+                ioRef?.emit("inference:summary", { jobId, videoId, summary });
+            }
         }
 
         ioRef?.emit("inference:playhead", { jobId, videoId, position: playhead });
@@ -248,4 +275,29 @@ export const getAdminOverview = (_req: Request, res: Response) => {
         activeStreams: activeStreams.size,
         processingVideos: videos.filter((v) => v.status === "processing").length,
     });
+};
+
+export const setUserQuota = (req: Request, res: Response) => {
+    const { email } = req.params;
+    if (typeof email !== 'string') {
+        res.status(400).json({ message: "Invalid email" });
+        return;
+    }
+    const { dailyLimit, weeklyLimit, monthlyLimit } = req.body as {
+        dailyLimit?: number;
+        weeklyLimit?: number;
+        monthlyLimit?: number;
+    };
+
+    const quota = getOrCreateQuota(email.toLowerCase());
+    if (dailyLimit !== undefined) quota.dailyLimit = dailyLimit;
+    if (weeklyLimit !== undefined) quota.weeklyLimit = weeklyLimit;
+    if (monthlyLimit !== undefined) quota.monthlyLimit = monthlyLimit;
+
+    res.json(quota);
+};
+
+export const getAllQuotas = (_req: Request, res: Response) => {
+    const quotas = Array.from(quotaByEmail.entries()).map(([email, quota]) => ({ email, ...quota }));
+    res.json(quotas);
 };

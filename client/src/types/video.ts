@@ -7,4 +7,6 @@ export interface Video {
     thumbnail?: string;
     status: "ready" | "processing" | "done";
     createdAt?: string;
+    startTime?: number;
+    endTime?: number;
 }

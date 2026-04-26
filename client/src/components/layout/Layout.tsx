@@ -1,4 +1,4 @@
-import { Box } from "@mui/material";
+﻿import { Box } from "@mui/material";
 import type { ReactNode } from "react";
 import Sidebar from "./Sidebar";
 import Navbar from "./Navbar";
@@ -9,11 +9,11 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
     return (
-        <Box sx={{ display: "flex", minHeight: "100vh", backgroundColor: "#f3f4f6" }}>
+        <Box sx={{ display: "flex", minHeight: "100vh", background: "#04060f" }}>
             <Sidebar />
-            <Box sx={{ flexGrow: 1, ml: { xs: 0, md: "240px" } }}>
+            <Box sx={{ flexGrow: 1, ml: "280px", minHeight: "100vh", background: "#070b18" }}>
                 <Navbar />
-                <Box sx={{ p: 3 }}>{children}</Box>
+                <Box sx={{ p: { xs: 2, md: 4 } }}>{children}</Box>
             </Box>
         </Box>
     );

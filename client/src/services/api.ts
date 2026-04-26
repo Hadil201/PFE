@@ -17,7 +17,7 @@ export const getVideos = async () => {
     return res.data;
 };
 
-export const uploadVideo = async (payload: { title: string; url: string }) => {
+export const uploadVideo = async (payload: { title: string; url: string; startTime?: number; endTime?: number }) => {
     const res = await api.post("/videos/upload", payload);
     return res.data;
 };
@@ -55,11 +55,17 @@ export const getActionClasses = async (): Promise<string[]> => {
     return res.data;
 };
 
+export const getSummarizationModels = async (): Promise<string[]> => {
+    const res = await api.get("/videos/summarization/models");
+    return res.data;
+};
+
 export const startInference = async (payload: {
     videoId: string;
     selectedClasses: string[];
     modelName: string;
     chunkDuration: number;
+    inferenceType?: "action-spotting" | "summarization";
 }) => {
     const res = await api.post("/videos/inference/start", payload);
     return res.data;
@@ -87,6 +93,16 @@ export const blockUser = async (email: string) => {
 
 export const unblockUser = async (email: string) => {
     const res = await api.patch(`/auth/users/${encodeURIComponent(email)}/unblock`);
+    return res.data;
+};
+
+export const setUserQuota = async (email: string, quota: { dailyLimit?: number; weeklyLimit?: number; monthlyLimit?: number }) => {
+    const res = await api.put(`/videos/admin/quota/${encodeURIComponent(email)}`, quota);
+    return res.data;
+};
+
+export const getAllQuotas = async () => {
+    const res = await api.get("/videos/admin/quotas");
     return res.data;
 };
 

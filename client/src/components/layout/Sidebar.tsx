@@ -1,18 +1,21 @@
-import {
+﻿import {
+    Avatar,
     Box,
     Button,
     Drawer,
     List,
     ListItem,
     ListItemButton,
+    ListItemIcon,
     ListItemText,
     Toolbar,
     Typography,
 } from "@mui/material";
 import { useNavigate, useLocation } from "react-router-dom";
 import { clearSession, getUser } from "../../services/authStorage";
+import { Archive, Home, ShieldCheck, Sparkles } from "lucide-react";
 
-const drawerWidth = 240;
+const drawerWidth = 280;
 
 export default function Sidebar() {
     const navigate = useNavigate();
@@ -20,10 +23,10 @@ export default function Sidebar() {
     const user = getUser();
 
     const menu = [
-        { text: "Dashboard", path: "/" },
-        { text: "Library", path: "/library" },
-        { text: "Analysis", path: "/analysis" },
-        ...(user?.role === "admin" ? [{ text: "Admin", path: "/admin" }] : []),
+        { text: "Dashboard", path: "/", icon: <Home size={18} /> },
+        { text: "Analysis", path: "/analysis", icon: <Sparkles size={18} /> },
+        { text: "Library", path: "/library", icon: <Archive size={18} /> },
+        ...(user?.role === "admin" ? [{ text: "Admin", path: "/admin", icon: <ShieldCheck size={18} /> }] : []),
     ];
 
     return (
@@ -35,50 +38,78 @@ export default function Sidebar() {
                 "& .MuiDrawer-paper": {
                     width: drawerWidth,
                     boxSizing: "border-box",
-                    background: "#111827",
-                    color: "#fff",
-                    borderRight: "none",
+                    background: "#040812",
+                    color: "#e2e8f0",
+                    borderRight: "1px solid rgba(148, 163, 184, 0.12)",
                     display: "flex",
                     flexDirection: "column",
+                    px: 2,
                 },
             }}
         >
-            <Toolbar>
+            <Toolbar sx={{ px: 0, py: 3 }}>
                 <Box>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                        Soccer Analysis
+                    <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: 1.1, mb: 1 }}>
+                        PITCHLENS PRO
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: "#94a3b8" }}>
+                        Elite Soccer Analytics
                     </Typography>
                 </Box>
             </Toolbar>
 
-            <List>
+            <List sx={{ mt: 2, gap: 1 }}>
                 {menu.map((item) => (
                     <ListItem key={item.text} disablePadding>
                         <ListItemButton
                             selected={location.pathname === item.path}
                             onClick={() => navigate(item.path)}
                             sx={{
+                                borderRadius: 2,
+                                mb: 1,
+                                color: "#e2e8f0",
                                 "&.Mui-selected": {
-                                    backgroundColor: "#2a2a40",
+                                    backgroundColor: "rgba(34, 197, 94, 0.18)",
+                                    color: "#22c55e",
                                 },
                                 "&:hover": {
-                                    backgroundColor: "#2a2a40",
+                                    backgroundColor: "rgba(148, 163, 184, 0.08)",
                                 },
                             }}
                         >
-                            <ListItemText primary={item.text} />
+                            <ListItemIcon sx={{ minWidth: 40, color: "inherit" }}>
+                                {item.icon}
+                            </ListItemIcon>
+                            <ListItemText primary={<Typography sx={{ fontWeight: 600 }}>{item.text}</Typography>} />
                         </ListItemButton>
                     </ListItem>
                 ))}
             </List>
-            <Box sx={{ mt: "auto", p: 2 }}>
-                <Typography variant="body2" sx={{ opacity: 0.8, mb: 1 }}>
-                    {user?.name ?? "Unknown user"}
-                </Typography>
+
+            <Box sx={{ mt: "auto", px: 1, py: 3, borderTop: "1px solid rgba(148, 163, 184, 0.12)" }}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
+                    <Avatar sx={{ bgcolor: "#0f172a", color: "#22c55e" }}>
+                        {user?.name?.charAt(0).toUpperCase() ?? "H"}
+                    </Avatar>
+                    <Box>
+                        <Typography variant="subtitle2" sx={{ color: "#f8fafc", fontWeight: 700 }}>
+                            {user?.name ?? "Head Scout"}
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: "#94a3b8" }}>
+                            {user?.role === "admin" ? "Admin" : "Elite Division"}
+                        </Typography>
+                    </Box>
+                </Box>
                 <Button
-                    variant="outlined"
-                    color="inherit"
+                    variant="contained"
                     fullWidth
+                    sx={{
+                        background: "#22c55e",
+                        color: "#020617",
+                        fontWeight: 700,
+                        boxShadow: "none",
+                        '&:hover': { background: '#16a34a' },
+                    }}
                     onClick={() => {
                         clearSession();
                         navigate("/login");

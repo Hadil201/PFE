@@ -50,6 +50,34 @@ router.get("/users", requireAuth, requireAdmin, (_req, res) => {
 });
 
 router.patch("/users/:email/block", requireAuth, requireAdmin, (req, res) => {
+    const { email } = req.params;
+    if (typeof email !== 'string') {
+        res.status(400).json({ message: "Invalid email" });
+        return;
+    }
+    const user = setUserBlocked(email, true);
+    if (!user) {
+        res.status(404).json({ message: "User not found" });
+        return;
+    }
+    res.json(user);
+});
+
+router.patch("/users/:email/unblock", requireAuth, requireAdmin, (req, res) => {
+    const { email } = req.params;
+    if (typeof email !== 'string') {
+        res.status(400).json({ message: "Invalid email" });
+        return;
+    }
+    const user = setUserBlocked(email, false);
+    if (!user) {
+        res.status(404).json({ message: "User not found" });
+        return;
+    }
+    res.json(user);
+});
+
+router.patch("/users/:email/block", requireAuth, requireAdmin, (req, res) => {
     const user = setUserBlocked(String(req.params.email), true);
     if (!user) {
         res.status(404).json({ message: "User not found" });

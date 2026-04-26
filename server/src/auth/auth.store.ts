@@ -26,6 +26,8 @@ const approvedEmails = new Set(
 
 const approvedDomain = (process.env.APPROVED_DOMAIN ?? "").trim().toLowerCase();
 
+const hasConfiguredAdminEmails = adminEmails.size > 0;
+
 export const isApprovedEmail = (email: string): boolean => {
     const normalized = email.toLowerCase();
     if (approvedEmails.size > 0) {
@@ -40,7 +42,12 @@ export const isApprovedEmail = (email: string): boolean => {
 export const upsertUser = (payload: { email: string; name: string; picture?: string | undefined }): AuthUser => {
     const key = payload.email.toLowerCase();
     const existing = users.get(key);
-    const role: UserRole = adminEmails.has(key) ? "admin" : "user";
+
+    const hasAdminUser = Array.from(users.values()).some((user) => user.role === "admin");
+    const role: UserRole = existing?.role ??
+        (hasConfiguredAdminEmails
+            ? (adminEmails.has(key) ? "admin" : "user")
+            : (hasAdminUser ? "user" : "admin"));
 
     const next: AuthUser = {
         email: payload.email,

@@ -1,7 +1,9 @@
 // src/pages/Library.tsx
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import type { Video } from "../types/video";
 import { getVideos, deleteVideo } from "../services/api";
+import { getUser } from "../services/authStorage";
 import {
     Box,
     Typography,
@@ -15,6 +17,8 @@ import {
 import Layout from "../components/layout/Layout";
 
 export default function Library() {
+    const navigate = useNavigate();
+    const user = getUser();
     const [videos, setVideos] = useState<Video[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -40,9 +44,31 @@ export default function Library() {
     return (
         <Layout>
             <Box>
-                <Typography variant="h4" sx={{ mb: 3 }}>
+                <Typography variant="h4" sx={{ mb: 1 }}>
                     Video Library
                 </Typography>
+
+                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2, alignItems: "center", mb: 3 }}>
+                    <Button
+                        variant="contained"
+                        sx={{ background: "#22c55e", color: "#020617", '&:hover': { background: '#16a34a' } }}
+                        onClick={() => navigate("/analysis")}
+                    >
+                        Upload Video
+                    </Button>
+                    <Button variant="outlined" onClick={() => void fetchVideos()}>
+                        Refresh
+                    </Button>
+                    {user?.role === "admin" && (
+                        <Button
+                            variant="contained"
+                            sx={{ background: "#2563eb", color: "#ffffff", '&:hover': { background: '#1d4ed8' } }}
+                            onClick={() => navigate("/admin")}
+                        >
+                            Admin Panel
+                        </Button>
+                    )}
+                </Box>
 
                 <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))" }}>
                     {videos.length === 0 && (
