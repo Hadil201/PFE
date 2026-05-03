@@ -5,11 +5,13 @@ import Library from "./pages/Library";
 import Login from "./pages/Login";
 import VideoAnalysis from "./pages/VideoAnalysis";
 import Admin from "./pages/Admin";
-import { getUser } from "./services/authStorage";
+import { clearSession, getToken, getUser } from "./services/authStorage";
 
 function RequireAuth({ children }: { children: ReactElement }) {
   const user = getUser();
-  if (!user) {
+  const token = getToken();
+  if (!user || !token) {
+    clearSession();
     return <Navigate to="/login" replace />;
   }
   return children;

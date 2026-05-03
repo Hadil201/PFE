@@ -1,5 +1,5 @@
 import axios from "axios";
-import { getToken } from "./authStorage";
+import { clearSession, getToken } from "./authStorage";
 
 const API = "http://localhost:5000/api";
 const api = axios.create({ baseURL: API });
@@ -11,6 +11,17 @@ api.interceptors.request.use((config) => {
     }
     return config;
 });
+
+api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if (error.response?.status === 401) {
+            clearSession();
+            window.location.href = "/login";
+        }
+        return Promise.reject(error);
+    }
+);
 
 export const getVideos = async () => {
     const res = await api.get("/videos");

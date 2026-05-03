@@ -41,6 +41,8 @@ export default function VideoAnalysis() {
     const [statusMessage, setStatusMessage] = useState("");
     const [errorMessage, setErrorMessage] = useState("");
     const [summary, setSummary] = useState("");
+    const [loadingActions, setLoadingActions] = useState(true);
+    const [loadingModels, setLoadingModels] = useState(true);
 
     const selectedVideo = useMemo(
         () => videos.find((video) => video._id === selectedVideoId),
@@ -48,12 +50,26 @@ export default function VideoAnalysis() {
     );
 
     const refreshData = async () => {
-        const [videosData, classData, summarizationData] = await Promise.all([getVideos(), getActionClasses(), getSummarizationModels()]);
-        setVideos(videosData);
-        setClasses(classData);
-        setSummarizationModels(summarizationData);
-        if (!selectedVideoId && videosData.length > 0) {
-            setSelectedVideoId(videosData[0]._id);
+        setLoadingActions(true);
+        setLoadingModels(true);
+        try {
+            const [videosData, classData, summarizationData] = await Promise.all([
+                getVideos(),
+                getActionClasses(),
+                getSummarizationModels(),
+            ]);
+            setVideos(videosData);
+            setClasses(classData);
+            setSummarizationModels(summarizationData);
+            if (!selectedVideoId && videosData.length > 0) {
+                setSelectedVideoId(videosData[0]._id);
+            }
+        } catch (error: any) {
+            console.error("Failed to load analysis data", error);
+            setErrorMessage(error?.response?.data?.message ?? "Failed to load videos or analysis options.");
+        } finally {
+            setLoadingActions(false);
+            setLoadingModels(false);
         }
     };
 
@@ -97,19 +113,40 @@ export default function VideoAnalysis() {
             return;
         }
         setErrorMessage("");
+        setStatusMessage("");
 
-        if (sourceType === "youtube") {
-            await addYoutube(sourceUrl.trim());
-        } else if (sourceType === "stream") {
-            await addStream(sourceUrl.trim());
-        } else {
-            await uploadVideo({ title: sourceUrl.trim(), url: sourceUrl.trim(), startTime: startTime || undefined, endTime: endTime || undefined });
+        try {
+            let createdVideo: Video | null = null;
+
+            if (sourceType === "youtube") {
+                const response = await addYoutube(sourceUrl.trim());
+                createdVideo = response as Video;
+            } else if (sourceType === "stream") {
+                const response = await addStream(sourceUrl.trim());
+                createdVideo = response as Video;
+            } else {
+                const response = await uploadVideo({
+                    title: sourceUrl.trim(),
+                    url: sourceUrl.trim(),
+                    startTime: startTime || undefined,
+                    endTime: endTime || undefined,
+                });
+                createdVideo = response as Video;
+            }
+
+            await refreshData();
+            if (createdVideo?._id) {
+                setSelectedVideoId(createdVideo._id);
+            }
+
+            setSourceUrl("");
+            setStartTime(0);
+            setEndTime(0);
+            setStatusMessage("Source added successfully.");
+        } catch (error: any) {
+            console.error("Failed to add source", error);
+            setErrorMessage(error?.response?.data?.message ?? "Failed to add source. Check the URL and try again.");
         }
-        setSourceUrl("");
-        setStartTime(0);
-        setEndTime(0);
-        setStatusMessage("Source added successfully.");
-        await refreshData();
     };
 
     const handleStart = async () => {
@@ -125,13 +162,20 @@ export default function VideoAnalysis() {
         setPlayhead(0);
         setSummary("");
         setErrorMessage("");
-        await startInference({
-            videoId: selectedVideoId,
-            selectedClasses: inferenceType === "action-spotting" ? selectedClasses : [],
-            modelName,
-            chunkDuration,
-            inferenceType,
-        });
+        setStatusMessage("");
+        try {
+            await startInference({
+                videoId: selectedVideoId,
+                selectedClasses: inferenceType === "action-spotting" ? selectedClasses : [],
+                modelName,
+                chunkDuration,
+                inferenceType,
+            });
+            setStatusMessage("Analysis started successfully.");
+        } catch (error) {
+            console.error("Failed to start analysis", error);
+            setErrorMessage("Failed to start analysis. Check your video selection and try again.");
+        }
     };
 
     return (
@@ -178,7 +222,11 @@ export default function VideoAnalysis() {
                                     />
                                 </>
                             )}
-                            <Button variant="outlined" onClick={() => void handleSourceSubmit()}>
+                            <Button
+                                variant="outlined"
+                                onClick={() => void handleSourceSubmit()}
+                                disabled={!sourceUrl.trim()}
+                            >
                                 Add Source
                             </Button>
                         </Stack>
@@ -190,6 +238,9 @@ export default function VideoAnalysis() {
                                 value={selectedVideoId}
                                 onChange={(event) => setSelectedVideoId(event.target.value)}
                             >
+                                <MenuItem value="" disabled>
+                                    {videos.length > 0 ? "Select a video" : "No videos available"}
+                                </MenuItem>
                                 {videos.map((video) => (
                                     <MenuItem key={video._id} value={video._id}>
                                         {video.title}
@@ -202,6 +253,7 @@ export default function VideoAnalysis() {
                                 type="number"
                                 value={chunkDuration}
                                 onChange={(event) => setChunkDuration(Number(event.target.value))}
+                                sx={{ input: { min: 1 } }}
                             />
                             <Select
                                 size="small"
@@ -220,6 +272,12 @@ export default function VideoAnalysis() {
                         </Stack>
 
                         <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 1 }}>
+                            {inferenceType === "action-spotting" && loadingActions && (
+                                <Typography color="text.secondary">Loading action classes...</Typography>
+                            )}
+                            {inferenceType === "action-spotting" && !loadingActions && classes.length === 0 && (
+                                <Typography color="text.secondary">No action classes available.</Typography>
+                            )}
                             {inferenceType === "action-spotting" && classes.map((actionClass) => (
                                 <FormControlLabel
                                     key={actionClass}
@@ -238,6 +296,12 @@ export default function VideoAnalysis() {
                                     label={actionClass}
                                 />
                             ))}
+                            {inferenceType === "summarization" && loadingModels && (
+                                <Typography color="text.secondary">Loading summarization models...</Typography>
+                            )}
+                            {inferenceType === "summarization" && !loadingModels && summarizationModels.length === 0 && (
+                                <Typography color="text.secondary">No summarization models available.</Typography>
+                            )}
                             {inferenceType === "summarization" && (
                                 <FormControl component="fieldset">
                                     <RadioGroup
@@ -260,7 +324,11 @@ export default function VideoAnalysis() {
                 </Card>
 
                 <Box>
-                    <Button variant="contained" onClick={() => void handleStart()}>
+                    <Button
+                        variant="contained"
+                        onClick={() => void handleStart()}
+                        disabled={!selectedVideoId || (inferenceType === "action-spotting" && selectedClasses.length === 0)}
+                    >
                         Start Analysis
                     </Button>
                 </Box>

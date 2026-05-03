@@ -10,7 +10,6 @@ import {
     Chip,
     LinearProgress,
     Stack,
-    TextField,
     Typography,
 } from "@mui/material";
 import { ArrowRight, Cloud, Cpu, Wifi, Zap } from "lucide-react";
@@ -61,7 +60,6 @@ export default function Dashboard() {
         monthlyUsed: 0,
         monthlyLimit: 0,
     });
-    const [url, setUrl] = useState("");
 
     useEffect(() => {
         void Promise.all([getVideos(), getQuota()]).then(([videosData, quotaData]) => {
@@ -160,59 +158,6 @@ export default function Dashboard() {
 
                 <Box sx={{ display: "grid", gap: 3, gridTemplateColumns: { xs: "1fr", lg: "3fr 1fr" } }}>
                     <Stack spacing={3}>
-                        <Card className="app-card">
-                            <CardContent>
-                                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3, gap: 2, flexWrap: "wrap" }}>
-                                    <Box>
-                                        <Typography sx={{ color: "#94a3b8", fontWeight: 700, letterSpacing: 1.2, textTransform: "uppercase" }}>
-                                            New Analysis Pipeline
-                                        </Typography>
-                                        <Typography variant="body2" sx={{ color: "#cbd5e1" }}>
-                                            Add a match source and begin a new inference flow.
-                                        </Typography>
-                                    </Box>
-                                    <Chip label="LIVE" sx={{ background: "#0f766e", color: "#d1fae5", fontWeight: 700 }} />
-                                </Box>
-                                <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 3 }}>
-                                    <Button
-                                        variant="contained"
-                                        sx={{ background: "#0f766e", color: "#d1fae5", px: 3, '&:hover': { background: '#115e59' } }}
-                                    >
-                                        YouTube URL
-                                    </Button>
-                                    <Button
-                                        variant="contained"
-                                        sx={{ background: "#2563eb", color: "#ffffff", px: 3, '&:hover': { background: '#1d4ed8' } }}
-                                    >
-                                        M3U Stream
-                                    </Button>
-                                    <Button
-                                        variant="contained"
-                                        sx={{ background: "#334155", color: "#d1d5db", px: 3, '&:hover': { background: '#1e293b' } }}
-                                    >
-                                        Direct Upload
-                                    </Button>
-                                </Stack>
-                                <Stack spacing={2}>
-                                    <TextField
-                                        value={url}
-                                        onChange={(event) => setUrl(event.target.value)}
-                                        placeholder="Paste match URL or ID"
-                                        fullWidth
-                                        sx={{ background: "#020817", input: { color: "#e2e8f0" } }}
-                                    />
-                                    <Button
-                                        fullWidth
-                                        variant="contained"
-                                        sx={{ background: "#22c55e", color: "#020617", fontWeight: 700, '&:hover': { background: '#16a34a' } }}
-                                        onClick={() => navigate("/analysis")}
-                                    >
-                                        START
-                                    </Button>
-                                </Stack>
-                            </CardContent>
-                        </Card>
-
                         <Card className="app-card">
                             <CardContent>
                                 <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 3, gap: 2, flexWrap: "wrap" }}>

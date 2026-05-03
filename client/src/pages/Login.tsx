@@ -1,4 +1,4 @@
-import { Box, Button, Paper, Stack, Typography } from "@mui/material";
+import { Box, Button, Paper, Stack, Typography, TextField } from "@mui/material";
 import { GoogleLogin, googleLogout } from "@react-oauth/google";
 import type { CredentialResponse } from "@react-oauth/google";
 import { jwtDecode } from "jwt-decode";
@@ -17,6 +17,27 @@ const Login = () => {
     const navigate = useNavigate();
     const [credentials, setCredentials] = useState<GoogleProfile>({});
     const [error, setError] = useState("");
+    const [email, setEmail] = useState("");
+    const [name, setName] = useState("");
+
+    const handleTestLogin = async () => {
+        if (!email || !name) {
+            setError("Email and name are required");
+            return;
+        }
+        try {
+            const data = await loginWithGoogleProfile({
+                email,
+                name,
+                picture: "",
+            });
+            setSession(data.token, data.user);
+            navigate("/");
+        } catch (err) {
+            setError("Test login failed");
+        }
+    };
+
     return (
         <Box className="login-page">
             <Paper className="login-card" elevation={0}>
@@ -34,34 +55,55 @@ const Login = () => {
                     )}
 
                     {!credentials.name && (
-                        <GoogleLogin
-                            onSuccess={(credentialResponse: CredentialResponse) => {
-                                if (!credentialResponse.credential) {
-                                    return;
-                                }
-                                const profile = jwtDecode<GoogleProfile>(credentialResponse.credential);
-                                if (!profile.email || !profile.name) {
-                                    setError("Google profile is missing email or name.");
-                                    return;
-                                }
-                                void loginWithGoogleProfile({
-                                    email: profile.email,
-                                    name: profile.name,
-                                    picture: profile.picture,
-                                })
-                                    .then((data) => {
-                                        setSession(data.token, data.user);
-                                        setCredentials(profile);
-                                        navigate("/");
+                        <>
+                            <Typography variant="h6">Test Login (for development)</Typography>
+                            <TextField
+                                label="Email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                fullWidth
+                            />
+                            <TextField
+                                label="Name"
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                fullWidth
+                            />
+                            <Button variant="outlined" onClick={handleTestLogin}>
+                                Test Login
+                            </Button>
+
+                            <Typography>OR</Typography>
+
+                            <GoogleLogin
+                                onSuccess={(credentialResponse: CredentialResponse) => {
+                                    if (!credentialResponse.credential) {
+                                        return;
+                                    }
+                                    const profile = jwtDecode<GoogleProfile>(credentialResponse.credential);
+                                    if (!profile.email || !profile.name) {
+                                        setError("Google profile is missing email or name.");
+                                        return;
+                                    }
+                                    void loginWithGoogleProfile({
+                                        email: profile.email,
+                                        name: profile.name,
+                                        picture: profile.picture,
                                     })
-                                    .catch((requestError) => {
-                                        setError(requestError?.response?.data?.message ?? "Login failed");
-                                    });
-                            }}
-                            onError={() => {
-                                setError("Login Failed");
-                            }}
-                        />
+                                        .then((data) => {
+                                            setSession(data.token, data.user);
+                                            setCredentials(profile);
+                                            navigate("/");
+                                        })
+                                        .catch((requestError) => {
+                                            setError(requestError?.response?.data?.message ?? "Login failed");
+                                        });
+                                }}
+                                onError={() => {
+                                    setError("Login Failed");
+                                }}
+                            />
+                        </>
                     )}
 
                     {credentials.name && (
