@@ -14,11 +14,12 @@ import {
     getAllQuotas,
 } from "../controllers/video.controller";
 import { requireAdmin, requireAuth } from "../middlewares/auth";
+import { uploadVideo as uploadMiddleware } from "../middlewares/upload";
 
 const router = Router();
 
 router.get("/", requireAuth, getVideos);
-router.post("/upload", requireAuth, uploadVideo);
+router.post("/upload", requireAuth, uploadMiddleware, uploadVideo);
 router.post("/youtube", requireAuth, addYoutube);
 router.post("/stream", requireAuth, addStream);
 router.delete("/:id", requireAuth, deleteVideo);

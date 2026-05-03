@@ -1,4 +1,6 @@
 import Layout from "../components/layout/Layout";
+import VideoPlayer from "../components/VideoPlayer";
+import Timeline from "../components/Timeline";
 import {
     Alert,
     Box,
@@ -19,15 +21,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { io } from "socket.io-client";
 import { addStream, addYoutube, getActionClasses, getSummarizationModels, getVideos, startInference, uploadVideo } from "../services/api";
-import type { Video } from "../types/video";
-
-interface TimelineEvent {
-    id: string;
-    label: string;
-    start: number;
-    end: number;
-    confidence: number;
-}
+import type { Video, ActionEvent } from "../types/video";
 
 export default function VideoAnalysis() {
     const [videos, setVideos] = useState<Video[]>([]);
@@ -42,7 +36,7 @@ export default function VideoAnalysis() {
     const [sourceUrl, setSourceUrl] = useState("");
     const [startTime, setStartTime] = useState(0);
     const [endTime, setEndTime] = useState(0);
-    const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
+    const [timeline, setTimeline] = useState<ActionEvent[]>([]);
     const [playhead, setPlayhead] = useState(0);
     const [statusMessage, setStatusMessage] = useState("");
     const [errorMessage, setErrorMessage] = useState("");
@@ -72,7 +66,7 @@ export default function VideoAnalysis() {
                 setPlayhead(payload.position);
             }
         });
-        socket.on("inference:event", (payload: { videoId: string; event: TimelineEvent }) => {
+        socket.on("inference:event", (payload: { videoId: string; event: ActionEvent }) => {
             if (payload.videoId === selectedVideoId) {
                 setTimeline((prev) => [...prev, payload.event]);
             }
@@ -273,34 +267,45 @@ export default function VideoAnalysis() {
                 {statusMessage && <Alert severity="success">{statusMessage}</Alert>}
                 {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
 
+                {selectedVideo && (
+                    <Card className="app-card">
+                        <CardContent>
+                            <VideoPlayer
+                                src={selectedVideo.url}
+                                title={selectedVideo.title}
+                                onTimeUpdate={(time) => setPlayhead(time)}
+                            />
+                        </CardContent>
+                    </Card>
+                )}
+
                 <Card className="app-card">
                     <CardContent>
-                        <Typography color="text.secondary" sx={{ mb: 1.5 }}>
-                            Live timeline synced with playback - playhead: {playhead}s
+                        <Typography variant="h6" sx={{ mb: 2 }}>
+                            Analysis Timeline
                         </Typography>
-                        <Box className="timeline-track">
-                            <Box className="timeline-playhead" style={{ left: `${Math.min(playhead, 100)}%` }} />
-                            {timeline.map((event) => (
-                                <Box
-                                    key={event.id}
-                                    className="timeline-event"
-                                    style={{
-                                        left: `${Math.min(event.start, 100)}%`,
-                                        width: `${Math.max(2, event.end - event.start)}%`,
-                                    }}
-                                >
-                                    {event.label}
-                                </Box>
-                            ))}
-                        </Box>
+                        <Timeline
+                            events={timeline}
+                            currentTime={playhead}
+                            duration={1800} // Default 30 minutes, would come from video metadata
+                            onEventClick={(event) => {
+                                console.log('Event clicked:', event);
+                                // Could seek video to event.start time
+                            }}
+                        />
                         {summary && (
-                            <Typography variant="body1" sx={{ mt: 2 }}>
-                                <strong>Summary:</strong> {summary}
-                            </Typography>
+                            <Box sx={{ mt: 2 }}>
+                                <Typography variant="h6" gutterBottom>
+                                    Generated Summary
+                                </Typography>
+                                <Typography variant="body1">
+                                    {summary}
+                                </Typography>
+                            </Box>
                         )}
                         {selectedVideo && (
                             <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
-                                Selected video status: {selectedVideo.status}
+                                Video Status: {selectedVideo.status}
                             </Typography>
                         )}
                     </CardContent>

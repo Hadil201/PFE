@@ -2,7 +2,7 @@ import "dotenv/config";
 import app from "./app";
 import { createServer } from "http";
 import { Server } from "socket.io";
-import { initRealtime } from "./controllers/video.controller";
+import { createInferenceSocketHandler } from "./sockets/inference.socket";
 
 const PORT = Number(process.env.PORT ?? 5000);
 const httpServer = createServer(app);
@@ -12,7 +12,8 @@ const io = new Server(httpServer, {
     },
 });
 
-initRealtime(io);
+// Initialize inference socket handler
+const inferenceHandler = createInferenceSocketHandler(io);
 
 io.on("connection", (socket) => {
     console.log(`Socket connected: ${socket.id}`);

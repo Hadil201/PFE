@@ -1,12 +1,24 @@
+import React from "react";
 import ReactDOM from "react-dom/client";
-import App from "./App";
-import "./index.css";
 import { GoogleOAuthProvider } from "@react-oauth/google";
+import App from "./App";
 
-const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
+const rootElement = document.getElementById("root");
+if (!rootElement) {
+  throw new Error("Root element not found");
+}
 
-ReactDOM.createRoot(document.getElementById("root")!).render(
-  <GoogleOAuthProvider clientId={clientId}>
-    <App />
-  </GoogleOAuthProvider>
+const root = ReactDOM.createRoot(rootElement);
+const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+
+root.render(
+  <React.StrictMode>
+    {googleClientId ? (
+      <GoogleOAuthProvider clientId={googleClientId}>
+        <App />
+      </GoogleOAuthProvider>
+    ) : (
+      <App />
+    )}
+  </React.StrictMode>
 );

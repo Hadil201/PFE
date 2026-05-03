@@ -1,6 +1,10 @@
 import { Request, Response } from "express";
 import { Server } from "socket.io";
 import { AuthenticatedRequest } from "../middlewares/auth";
+import { youtubeService } from "../services/youtube.service";
+import { videoProcessingService } from "../services/videoProcessing.service";
+import { mlInferenceService } from "../services/mlInference.service";
+import { googleDriveService } from "../services/googleDrive.service";
 
 type VideoSource = "upload" | "youtube" | "stream";
 type VideoStatus = "ready" | "processing" | "done";
@@ -16,7 +20,7 @@ interface VideoEntity {
     endTime?: number;
 }
 
-interface ActionEvent {
+export interface ActionEvent {
     id: string;
     label: string;
     start: number;
@@ -104,39 +108,91 @@ export const getVideos = (_req: Request, res: Response) => {
     res.json(videos);
 };
 
-export const uploadVideo = (req: Request, res: Response) => {
-    const title = String(req.body.title ?? "Uploaded Video");
-    const url = String(req.body.url ?? "");
-    const startTime = Number(req.body.startTime ?? 0);
-    const endTime = Number(req.body.endTime ?? 0);
+export const uploadVideo = async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        if (!req.file) {
+            res.status(400).json({ message: "No video file uploaded" });
+            return;
+        }
 
-    const video: VideoEntity = {
-        _id: Date.now().toString(),
-        title,
-        source: "upload",
-        url,
-        status: "ready",
-        createdAt: new Date().toISOString(),
-        startTime,
-        endTime,
-    };
+        const title = String(req.body.title ?? req.file.originalname);
+        const startTime = Number(req.body.startTime ?? 0);
+        const endTime = Number(req.body.endTime ?? 0);
 
-    videos.push(video);
-    res.json(video);
+        // Store video metadata
+        const video: VideoEntity = {
+            _id: Date.now().toString(),
+            title,
+            source: "upload",
+            url: req.file.path, // Local file path
+            status: "ready",
+            createdAt: new Date().toISOString(),
+            startTime,
+            endTime,
+        };
+
+        videos.push(video);
+
+        // Optionally upload to Google Drive for storage
+        if (process.env.GOOGLE_DRIVE_FOLDER_ID) {
+            try {
+                const fs = require('fs');
+                const fileBuffer = fs.readFileSync(req.file.path);
+                const driveFile = await googleDriveService.uploadFile(
+                    req.file.originalname,
+                    req.file.mimetype,
+                    fileBuffer
+                );
+                
+                // Update video with Google Drive URL
+                video.url = driveFile.webContentLink;
+                console.log(`Video uploaded to Google Drive: ${driveFile.id}`);
+            } catch (driveError) {
+                console.error('Failed to upload to Google Drive:', driveError);
+                // Continue with local storage even if Google Drive fails
+            }
+        }
+
+        res.json(video);
+    } catch (error) {
+        console.error('Error uploading video:', error);
+        res.status(500).json({ message: "Failed to upload video" });
+    }
 };
 
-export const addYoutube = (req: Request, res: Response) => {
-    const video: VideoEntity = {
-        _id: Date.now().toString(),
-        title: req.body.url,
-        source: "youtube",
-        url: req.body.url,
-        status: "ready",
-        createdAt: new Date().toISOString(),
-    };
+export const addYoutube = async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        const { url } = req.body;
+        
+        if (!url) {
+            res.status(400).json({ message: "YouTube URL is required" });
+            return;
+        }
 
-    videos.push(video);
-    res.json(video);
+        // Validate YouTube URL and get video info
+        const isAvailable = await youtubeService.isVideoAvailable(url);
+        if (!isAvailable) {
+            res.status(400).json({ message: "YouTube video is not available or invalid URL" });
+            return;
+        }
+
+        const videoInfo = await youtubeService.getVideoInfo(url);
+
+        const video: VideoEntity = {
+            _id: Date.now().toString(),
+            title: videoInfo.title,
+            source: "youtube",
+            url: url,
+            status: "ready",
+            createdAt: new Date().toISOString(),
+        };
+
+        videos.push(video);
+        res.json({ ...video, videoInfo });
+    } catch (error) {
+        console.error('Error adding YouTube video:', error);
+        res.status(500).json({ message: "Failed to add YouTube video" });
+    }
 };
 
 export const addStream = (req: Request, res: Response) => {
