@@ -1,10 +1,9 @@
-import { Box, Button, Paper, Stack, Typography, TextField } from "@mui/material";
+import { Box, Button, Paper, Stack, Typography } from "@mui/material";
 import { GoogleLogin, googleLogout } from "@react-oauth/google";
 import type { CredentialResponse } from "@react-oauth/google";
 import { jwtDecode } from "jwt-decode";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { loginWithGoogleProfile } from "../services/api";
 import { setSession } from "../services/authStorage";
 
 interface GoogleProfile {
@@ -17,25 +16,31 @@ const Login = () => {
     const navigate = useNavigate();
     const [credentials, setCredentials] = useState<GoogleProfile>({});
     const [error, setError] = useState("");
-    const [email, setEmail] = useState("");
-    const [name, setName] = useState("");
 
-    const handleTestLogin = async () => {
-        if (!email || !name) {
-            setError("Email and name are required");
+    const handleGoogleLogin = (credentialResponse: CredentialResponse) => {
+        if (!credentialResponse.credential) {
             return;
         }
-        try {
-            const data = await loginWithGoogleProfile({
-                email,
-                name,
-                picture: "",
-            });
-            setSession(data.token, data.user);
-            navigate("/");
-        } catch (err) {
-            setError("Test login failed");
+        const profile = jwtDecode<GoogleProfile>(credentialResponse.credential);
+        if (!profile.email || !profile.name) {
+            setError("Google profile is missing email or name.");
+            return;
         }
+
+        // Create a local token (mimicking backend behavior)
+        const token = btoa(JSON.stringify({ email: profile.email, role: "user" }));
+
+        const user = {
+            email: profile.email,
+            name: profile.name,
+            picture: profile.picture,
+            role: "user" as const,
+            blocked: false,
+        };
+
+        setSession(token, user);
+        setCredentials(profile);
+        navigate("/");
     };
 
     return (
@@ -56,51 +61,10 @@ const Login = () => {
 
                     {!credentials.name && (
                         <>
-                            <Typography variant="h6">Test Login (for development)</Typography>
-                            <TextField
-                                label="Email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                fullWidth
-                            />
-                            <TextField
-                                label="Name"
-                                value={name}
-                                onChange={(e) => setName(e.target.value)}
-                                fullWidth
-                            />
-                            <Button variant="outlined" onClick={handleTestLogin}>
-                                Test Login
-                            </Button>
-
-                            <Typography>OR</Typography>
-
                             <GoogleLogin
-                                onSuccess={(credentialResponse: CredentialResponse) => {
-                                    if (!credentialResponse.credential) {
-                                        return;
-                                    }
-                                    const profile = jwtDecode<GoogleProfile>(credentialResponse.credential);
-                                    if (!profile.email || !profile.name) {
-                                        setError("Google profile is missing email or name.");
-                                        return;
-                                    }
-                                    void loginWithGoogleProfile({
-                                        email: profile.email,
-                                        name: profile.name,
-                                        picture: profile.picture,
-                                    })
-                                        .then((data) => {
-                                            setSession(data.token, data.user);
-                                            setCredentials(profile);
-                                            navigate("/");
-                                        })
-                                        .catch((requestError) => {
-                                            setError(requestError?.response?.data?.message ?? "Login failed");
-                                        });
-                                }}
+                                onSuccess={handleGoogleLogin}
                                 onError={() => {
-                                    setError("Login Failed");
+                                    setError("Google Login Failed");
                                 }}
                             />
                         </>
@@ -112,6 +76,7 @@ const Login = () => {
                             onClick={() => {
                                 googleLogout();
                                 setCredentials({});
+                                setError("");
                             }}
                         >
                             Logout

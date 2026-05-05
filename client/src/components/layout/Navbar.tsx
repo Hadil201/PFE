@@ -1,5 +1,4 @@
-﻿import { Box, Button, Typography } from "@mui/material";
-import { Sparkles } from "lucide-react";
+﻿import { Box, Typography } from "@mui/material";
 
 export default function Navbar() {
     return (
@@ -23,20 +22,7 @@ export default function Navbar() {
                     Real-time match insights and inference health.
                 </Typography>
             </Box>
-            <Button
-                variant="contained"
-                startIcon={<Sparkles size={18} />}
-                sx={{
-                    background: "#22c55e",
-                    color: "#020617",
-                    fontWeight: 700,
-                    px: 3,
-                    boxShadow: "none",
-                    '&:hover': { background: '#16a34a' },
-                }}
-            >
-                New Project
-            </Button>
+           
         </Box>
     );
 }

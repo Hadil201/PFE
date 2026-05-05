@@ -1,11 +1,19 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { ThemeProvider } from "@mui/material/styles";
 import type { ReactElement } from "react";
 import Dashboard from "./pages/Dashboard";
 import Library from "./pages/Library";
 import Login from "./pages/Login";
 import VideoAnalysis from "./pages/VideoAnalysis";
 import Admin from "./pages/Admin";
+import { createTheme } from "@mui/material/styles";
 import { clearSession, getToken, getUser } from "./services/authStorage";
+
+const theme = createTheme({
+  palette: {
+    mode: "dark"
+  },
+});
 
 function RequireAuth({ children }: { children: ReactElement }) {
   const user = getUser();
@@ -30,16 +38,18 @@ function RequireAdmin({ children }: { children: ReactElement }) {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/" element={<RequireAuth><Dashboard /></RequireAuth>} />
-        <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
-        <Route path="/library" element={<RequireAuth><Library /></RequireAuth>} />
-        <Route path="/analysis" element={<RequireAuth><VideoAnalysis /></RequireAuth>} />
-        <Route path="/admin" element={<RequireAdmin><Admin /></RequireAdmin>} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
+    <ThemeProvider theme={theme}>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/" element={<RequireAuth><Dashboard /></RequireAuth>} />
+          <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
+          <Route path="/library" element={<RequireAuth><Library /></RequireAuth>} />
+          <Route path="/analysis" element={<RequireAuth><VideoAnalysis /></RequireAuth>} />
+          <Route path="/admin" element={<RequireAdmin><Admin /></RequireAdmin>} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }

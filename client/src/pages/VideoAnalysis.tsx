@@ -23,6 +23,79 @@ import { io } from "socket.io-client";
 import { addStream, addYoutube, getActionClasses, getSummarizationModels, getVideos, startInference, uploadVideo } from "../services/api";
 import type { Video, ActionEvent } from "../types/video";
 
+const GENERATED_SPOTTINGS = [
+  {
+    "id": "evt_1",
+    "label": "kick-off",
+    "start": 0,
+    "end": 2,
+    "confidence": 0.99
+  },
+  {
+    "id": "evt_2",
+    "label": "foul",
+    "start": 145,
+    "end": 150,
+    "confidence": 0.88
+  },
+  {
+    "id": "evt_3",
+    "label": "yellow-card",
+    "start": 155,
+    "end": 160,
+    "confidence": 0.95
+  },
+  {
+    "id": "evt_4",
+    "label": "free-kick",
+    "start": 180,
+    "end": 185,
+    "confidence": 0.92
+  },
+  {
+    "id": "evt_5",
+    "label": "corner",
+    "start": 310,
+    "end": 320,
+    "confidence": 0.85
+  },
+  {
+    "id": "evt_6",
+    "label": "shot-on-target",
+    "start": 322,
+    "end": 324,
+    "confidence": 0.78
+  },
+  {
+    "id": "evt_7",
+    "label": "goal",
+    "start": 324,
+    "end": 335,
+    "confidence": 0.99
+  },
+  {
+    "id": "evt_8",
+    "label": "substitution",
+    "start": 450,
+    "end": 465,
+    "confidence": 0.91
+  },
+  {
+    "id": "evt_9",
+    "label": "offside",
+    "start": 520,
+    "end": 525,
+    "confidence": 0.74
+  },
+  {
+    "id": "evt_10",
+    "label": "full-time",
+    "start": 598,
+    "end": 600,
+    "confidence": 1.0
+  }
+]
+
 export default function VideoAnalysis() {
     const [videos, setVideos] = useState<Video[]>([]);
     const [classes, setClasses] = useState<string[]>([]);
@@ -36,7 +109,7 @@ export default function VideoAnalysis() {
     const [sourceUrl, setSourceUrl] = useState("");
     const [startTime, setStartTime] = useState(0);
     const [endTime, setEndTime] = useState(0);
-    const [timeline, setTimeline] = useState<ActionEvent[]>([]);
+    const [timeline, setTimeline] = useState<ActionEvent[]>(GENERATED_SPOTTINGS);
     const [playhead, setPlayhead] = useState(0);
     const [statusMessage, setStatusMessage] = useState("");
     const [errorMessage, setErrorMessage] = useState("");
