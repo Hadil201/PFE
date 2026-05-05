@@ -24,76 +24,76 @@ import { addStream, addYoutube, getActionClasses, getSummarizationModels, getVid
 import type { Video, ActionEvent } from "../types/video";
 
 const GENERATED_SPOTTINGS = [
-  {
-    "id": "evt_1",
-    "label": "kick-off",
-    "start": 0,
-    "end": 2,
-    "confidence": 0.99
-  },
-  {
-    "id": "evt_2",
-    "label": "foul",
-    "start": 145,
-    "end": 150,
-    "confidence": 0.88
-  },
-  {
-    "id": "evt_3",
-    "label": "yellow-card",
-    "start": 155,
-    "end": 160,
-    "confidence": 0.95
-  },
-  {
-    "id": "evt_4",
-    "label": "free-kick",
-    "start": 180,
-    "end": 185,
-    "confidence": 0.92
-  },
-  {
-    "id": "evt_5",
-    "label": "corner",
-    "start": 310,
-    "end": 320,
-    "confidence": 0.85
-  },
-  {
-    "id": "evt_6",
-    "label": "shot-on-target",
-    "start": 322,
-    "end": 324,
-    "confidence": 0.78
-  },
-  {
-    "id": "evt_7",
-    "label": "goal",
-    "start": 324,
-    "end": 335,
-    "confidence": 0.99
-  },
-  {
-    "id": "evt_8",
-    "label": "substitution",
-    "start": 450,
-    "end": 465,
-    "confidence": 0.91
-  },
-  {
-    "id": "evt_9",
-    "label": "offside",
-    "start": 520,
-    "end": 525,
-    "confidence": 0.74
-  },
-  {
-    "id": "evt_10",
-    "label": "full-time",
-    "start": 598,
-    "end": 600,
-    "confidence": 1.0
-  }
+    {
+        "id": "evt_1",
+        "label": "kick-off",
+        "start": 0,
+        "end": 2,
+        "confidence": 0.99
+    },
+    {
+        "id": "evt_2",
+        "label": "foul",
+        "start": 145,
+        "end": 150,
+        "confidence": 0.88
+    },
+    {
+        "id": "evt_3",
+        "label": "yellow-card",
+        "start": 155,
+        "end": 160,
+        "confidence": 0.95
+    },
+    {
+        "id": "evt_4",
+        "label": "free-kick",
+        "start": 180,
+        "end": 185,
+        "confidence": 0.92
+    },
+    {
+        "id": "evt_5",
+        "label": "corner",
+        "start": 310,
+        "end": 320,
+        "confidence": 0.85
+    },
+    {
+        "id": "evt_6",
+        "label": "shot-on-target",
+        "start": 322,
+        "end": 324,
+        "confidence": 0.78
+    },
+    {
+        "id": "evt_7",
+        "label": "goal",
+        "start": 324,
+        "end": 335,
+        "confidence": 0.99
+    },
+    {
+        "id": "evt_8",
+        "label": "substitution",
+        "start": 450,
+        "end": 465,
+        "confidence": 0.91
+    },
+    {
+        "id": "evt_9",
+        "label": "offside",
+        "start": 520,
+        "end": 525,
+        "confidence": 0.74
+    },
+    {
+        "id": "evt_10",
+        "label": "full-time",
+        "start": 598,
+        "end": 600,
+        "confidence": 1.0
+    }
 ]
 
 export default function VideoAnalysis() {
@@ -138,8 +138,8 @@ export default function VideoAnalysis() {
                 setSelectedVideoId(videosData[0]._id);
             }
         } catch (error: any) {
-            console.error("Failed to load analysis data", error);
-            setErrorMessage(error?.response?.data?.message ?? "Failed to load videos or analysis options.");
+            console.error("Impossible de charger les données d'analyse", error);
+            setErrorMessage(error?.response?.data?.message ?? "Impossible de charger les vidéos ou les options d'analyse.");
         } finally {
             setLoadingActions(false);
             setLoadingModels(false);
@@ -166,11 +166,11 @@ export default function VideoAnalysis() {
             }
         });
         socket.on("inference:started", () => {
-            setStatusMessage("Inference started.");
+            setStatusMessage("L'inférence a démarré.");
             setErrorMessage("");
         });
         socket.on("inference:completed", () => {
-            setStatusMessage("Inference completed.");
+            setStatusMessage("L'inférence est terminée.");
             void refreshData();
         });
 
@@ -182,7 +182,7 @@ export default function VideoAnalysis() {
 
     const handleSourceSubmit = async () => {
         if (!sourceUrl.trim()) {
-            setErrorMessage("Please provide a source URL or file path.");
+            setErrorMessage("Veuillez fournir une URL source ou un chemin de fichier.");
             return;
         }
         setErrorMessage("");
@@ -215,20 +215,20 @@ export default function VideoAnalysis() {
             setSourceUrl("");
             setStartTime(0);
             setEndTime(0);
-            setStatusMessage("Source added successfully.");
+            setStatusMessage("L'analyse a démarrée avec succès.");
         } catch (error: any) {
-            console.error("Failed to add source", error);
-            setErrorMessage(error?.response?.data?.message ?? "Failed to add source. Check the URL and try again.");
+            console.error("Impossible de démarrer l'analyse", error);
+            setErrorMessage(error?.response?.data?.message ?? "Impossible d'ajouter la source. Vérifiez l'URL et réessayez.");
         }
     };
 
     const handleStart = async () => {
         if (!selectedVideoId) {
-            setErrorMessage("Select a video first.");
+            setErrorMessage("Sélectionnez d'abord une vidéo.");
             return;
         }
         if (inferenceType === "action-spotting" && selectedClasses.length === 0) {
-            setErrorMessage("Select at least one action class.");
+            setErrorMessage("Sélectionnez au moins une classe d'action.");
             return;
         }
         setTimeline([]);
@@ -244,17 +244,17 @@ export default function VideoAnalysis() {
                 chunkDuration,
                 inferenceType,
             });
-            setStatusMessage("Analysis started successfully.");
+            setStatusMessage("L'analyse a démarrée avec succès.");
         } catch (error) {
-            console.error("Failed to start analysis", error);
-            setErrorMessage("Failed to start analysis. Check your video selection and try again.");
+            console.error("Impossible de démarrer l'analyse", error);
+            setErrorMessage("Impossible de démarrer l'analyse. Vérifiez votre sélection vidéo et réessayez.");
         }
     };
 
     return (
         <Layout>
             <Stack spacing={3}>
-                <Typography variant="h4">Video Analysis</Typography>
+                <Typography variant="h4">Analyse vidéo</Typography>
 
                 <Card className="app-card">
                     <CardContent>
@@ -267,13 +267,13 @@ export default function VideoAnalysis() {
                                 }
                             >
                                 <MenuItem value="youtube">YouTube</MenuItem>
-                                <MenuItem value="stream">M3U Stream</MenuItem>
-                                <MenuItem value="upload">Upload (metadata)</MenuItem>
+                                <MenuItem value="stream">Flux M3U</MenuItem>
+                                <MenuItem value="upload">Télécharger (métadonnées)</MenuItem>
                             </Select>
                             <TextField
                                 size="small"
                                 fullWidth
-                                label="Video URL or file name"
+                                label="URL vidéo ou nom de fichier"
                                 value={sourceUrl}
                                 onChange={(event) => setSourceUrl(event.target.value)}
                             />
@@ -281,14 +281,14 @@ export default function VideoAnalysis() {
                                 <>
                                     <TextField
                                         size="small"
-                                        label="Start Time (sec)"
+                                        label="Heure de début (sec)"
                                         type="number"
                                         value={startTime}
                                         onChange={(event) => setStartTime(Number(event.target.value))}
                                     />
                                     <TextField
                                         size="small"
-                                        label="End Time (sec)"
+                                        label="Heure de fin (sec)"
                                         type="number"
                                         value={endTime}
                                         onChange={(event) => setEndTime(Number(event.target.value))}
@@ -300,7 +300,7 @@ export default function VideoAnalysis() {
                                 onClick={() => void handleSourceSubmit()}
                                 disabled={!sourceUrl.trim()}
                             >
-                                Add Source
+                                Ajouter une source
                             </Button>
                         </Stack>
 
@@ -312,7 +312,7 @@ export default function VideoAnalysis() {
                                 onChange={(event) => setSelectedVideoId(event.target.value)}
                             >
                                 <MenuItem value="" disabled>
-                                    {videos.length > 0 ? "Select a video" : "No videos available"}
+                                    {videos.length > 0 ? "Sélectionner une vidéo" : "Aucune vidéo disponible"}
                                 </MenuItem>
                                 {videos.map((video) => (
                                     <MenuItem key={video._id} value={video._id}>
@@ -322,7 +322,7 @@ export default function VideoAnalysis() {
                             </Select>
                             <TextField
                                 size="small"
-                                label="Chunk (sec)"
+                                label="Morceau (sec)"
                                 type="number"
                                 value={chunkDuration}
                                 onChange={(event) => setChunkDuration(Number(event.target.value))}
@@ -333,12 +333,12 @@ export default function VideoAnalysis() {
                                 value={inferenceType}
                                 onChange={(event) => setInferenceType(event.target.value as "action-spotting" | "summarization")}
                             >
-                                <MenuItem value="action-spotting">Action Spotting</MenuItem>
-                                <MenuItem value="summarization">Summarization</MenuItem>
+                                <MenuItem value="action-spotting">Détection d'action</MenuItem>
+                                <MenuItem value="summarization">Résumé</MenuItem>
                             </Select>
                             <TextField
                                 size="small"
-                                label="Model"
+                                label="Modèle"
                                 value={modelName}
                                 onChange={(event) => setModelName(event.target.value)}
                             />
@@ -346,10 +346,10 @@ export default function VideoAnalysis() {
 
                         <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 1 }}>
                             {inferenceType === "action-spotting" && loadingActions && (
-                                <Typography color="text.secondary">Loading action classes...</Typography>
+                                <Typography color="text.secondary">Chargement des classes d'action...</Typography>
                             )}
                             {inferenceType === "action-spotting" && !loadingActions && classes.length === 0 && (
-                                <Typography color="text.secondary">No action classes available.</Typography>
+                                <Typography color="text.secondary">Aucune classe d'action disponible.</Typography>
                             )}
                             {inferenceType === "action-spotting" && classes.map((actionClass) => (
                                 <FormControlLabel
@@ -370,10 +370,10 @@ export default function VideoAnalysis() {
                                 />
                             ))}
                             {inferenceType === "summarization" && loadingModels && (
-                                <Typography color="text.secondary">Loading summarization models...</Typography>
+                                <Typography color="text.secondary">Chargement des modèles de résumé...</Typography>
                             )}
                             {inferenceType === "summarization" && !loadingModels && summarizationModels.length === 0 && (
-                                <Typography color="text.secondary">No summarization models available.</Typography>
+                                <Typography color="text.secondary">Aucun modèle de résumé disponible.</Typography>
                             )}
                             {inferenceType === "summarization" && (
                                 <FormControl component="fieldset">
@@ -402,7 +402,7 @@ export default function VideoAnalysis() {
                         onClick={() => void handleStart()}
                         disabled={!selectedVideoId || (inferenceType === "action-spotting" && selectedClasses.length === 0)}
                     >
-                        Start Analysis
+                        Commencer l'analyse
                     </Button>
                 </Box>
                 {statusMessage && <Alert severity="success">{statusMessage}</Alert>}

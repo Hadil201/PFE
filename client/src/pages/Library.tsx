@@ -45,7 +45,7 @@ export default function Library() {
         <Layout>
             <Box>
                 <Typography variant="h4" sx={{ mb: 1 }}>
-                    Video Library
+                    Bibliothèque vidéo
                 </Typography>
 
                 <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2, alignItems: "center", mb: 3 }}>
@@ -54,10 +54,10 @@ export default function Library() {
                         sx={{ background: "#22c55e", color: "#020617", '&:hover': { background: '#16a34a' } }}
                         onClick={() => navigate("/analysis")}
                     >
-                        Upload Video
+                        Télécharger une vidéo
                     </Button>
                     <Button variant="outlined" onClick={() => void fetchVideos()}>
-                        Refresh
+                        Rafraîchir
                     </Button>
                     {user?.role === "admin" && (
                         <Button
@@ -65,7 +65,7 @@ export default function Library() {
                             sx={{ background: "#2563eb", color: "#ffffff", '&:hover': { background: '#1d4ed8' } }}
                             onClick={() => navigate("/admin")}
                         >
-                            Admin Panel
+                            Panneau d'administration
                         </Button>
                     )}
                 </Box>
@@ -73,7 +73,7 @@ export default function Library() {
                 <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))" }}>
                     {videos.length === 0 && (
                         <Box>
-                            <Typography color="text.secondary">No videos found</Typography>
+                            <Typography color="text.secondary">Aucune vidéo trouvée</Typography>
                         </Box>
                     )}
 
@@ -93,7 +93,7 @@ export default function Library() {
                                     <Stack spacing={1.5}>
                                         <Typography variant="h6">{video.title}</Typography>
                                         <Typography variant="body2" color="text.secondary">
-                                            Status: {video.status}
+                                            Statut: {video.status}
                                         </Typography>
 
                                         <Box>
@@ -102,7 +102,7 @@ export default function Library() {
                                                 color="error"
                                                 onClick={() => handleDelete(video._id)}
                                             >
-                                                Delete
+                                                Supprimer
                                             </Button>
                                         </Box>
                                     </Stack>

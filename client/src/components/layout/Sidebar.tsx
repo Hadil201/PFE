@@ -23,10 +23,10 @@ export default function Sidebar() {
     const user = getUser();
 
     const menu = [
-        { text: "Dashboard", path: "/", icon: <Home size={18} /> },
-        { text: "Analysis", path: "/analysis", icon: <Sparkles size={18} /> },
-        { text: "Library", path: "/library", icon: <Archive size={18} /> },
-        ...(user?.role === "admin" ? [{ text: "Admin", path: "/admin", icon: <ShieldCheck size={18} /> }] : []),
+        { text: "Tableau de bord", path: "/", icon: <Home size={18} /> },
+        { text: "Analyse", path: "/analysis", icon: <Sparkles size={18} /> },
+        { text: "Bibliothèque", path: "/library", icon: <Archive size={18} /> },
+        { text: "Admin", path: "/admin", icon: <ShieldCheck size={18} /> },
     ];
 
     return (
@@ -53,7 +53,7 @@ export default function Sidebar() {
                         PITCHLENS PRO
                     </Typography>
                     <Typography variant="caption" sx={{ color: "#94a3b8" }}>
-                        Elite Soccer Analytics
+                        Analyse de soccer d'élite
                     </Typography>
                 </Box>
             </Toolbar>
@@ -96,7 +96,7 @@ export default function Sidebar() {
                             {user?.name ?? "Head Scout"}
                         </Typography>
                         <Typography variant="caption" sx={{ color: "#94a3b8" }}>
-                            {user?.role === "admin" ? "Admin" : "Elite Division"}
+                            {user?.role === "admin" ? "Admin" : "Division d'élite"}
                         </Typography>
                     </Box>
                 </Box>

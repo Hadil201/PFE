@@ -39,10 +39,10 @@ export default function Dashboard() {
                 <Box sx={{ display: "flex", justifyContent: "space-between", gap: 3, flexWrap: "wrap" }}>
                     <Box sx={{ maxWidth: 640 }}>
                         <Typography variant="h3" sx={{ color: "#f8fafc", fontWeight: 800, mb: 1 }}>
-                            Performance Dashboard
+                            Tableau de bord des performances
                         </Typography>
                         <Typography sx={{ color: "#94a3b8" }}>
-                            Reviewing Match Week 24 analysis inferences across active streams and compute nodes.
+                            Révision des inférences d'analyse de la Semaine 24 sur les flux actifs et les nœuds de calcul.
                         </Typography>
                     </Box>
                     <Button
@@ -56,14 +56,14 @@ export default function Dashboard() {
                         }}
                         onClick={() => navigate("/analysis")}
                     >
-                        Start New Analysis
+                        Commencer une nouvelle analyse
                     </Button>
                 </Box>
                 <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr 1fr 1fr" } }}>
                     <Card className="app-card">
                         <CardContent>
                             <Typography sx={{ color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", fontSize: 12, mb: 1 }}>
-                                Total Videos
+                                Vidéos totales
                             </Typography>
                             <Typography variant="h4" sx={{ color: "#f8fafc", fontWeight: 800 }}>
                                 {total}
@@ -73,7 +73,7 @@ export default function Dashboard() {
                     <Card className="app-card">
                         <CardContent>
                             <Typography sx={{ color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", fontSize: 12, mb: 1 }}>
-                                Processed
+                                Traité
                             </Typography>
                             <Typography variant="h4" sx={{ color: "#f8fafc", fontWeight: 800 }}>
                                 {processed}
@@ -83,7 +83,7 @@ export default function Dashboard() {
                     <Card className="app-card">
                         <CardContent>
                             <Typography sx={{ color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", fontSize: 12, mb: 1 }}>
-                                Processing
+                                En cours de traitement
                             </Typography>
                             <Typography variant="h4" sx={{ color: "#f8fafc", fontWeight: 800 }}>
                                 {processing}
@@ -93,7 +93,7 @@ export default function Dashboard() {
                     <Card className="app-card">
                         <CardContent>
                             <Typography sx={{ color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", fontSize: 12, mb: 1 }}>
-                                Ready / Daily
+                                Prêt / Quotidien
                             </Typography>
                             <Typography variant="h4" sx={{ color: "#f8fafc", fontWeight: 800 }}>
                                 {ready} / {quota.dailyUsed}/{quota.dailyLimit}
@@ -108,30 +108,30 @@ export default function Dashboard() {
                                 <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3, gap: 2, flexWrap: "wrap" }}>
                                     <Box>
                                         <Typography sx={{ color: "#94a3b8", fontWeight: 700, letterSpacing: 1.2, textTransform: "uppercase" }}>
-                                            Quota Usage
+                                            Utilisation du quota
                                         </Typography>
                                         <Typography variant="body2" sx={{ color: "#cbd5e1" }}>
-                                            Total compute hours across active sessions.
+                                            Total des heures de calcul sur les sessions actives.
                                         </Typography>
                                     </Box>
                                     <Typography sx={{ color: "#f8fafc", fontWeight: 700, mt: 1 }}>142.5 hrs</Typography>
                                 </Box>
                                 <Box sx={{ display: "grid", gap: 1.5, mb: 3 }}>
                                     <Box sx={{ display: "flex", justifyContent: "space-between", color: "#94a3b8", fontSize: 13 }}>
-                                        <span>Remaining quota</span>
-                                        <span>57.5 hrs</span>
+                                        <span>Quota restant</span>
+                                        <span>57,5 h</span>
                                     </Box>
                                     <LinearProgress variant="determinate" value={68} sx={{ height: 10, borderRadius: 5, background: "rgba(148, 163, 184, 0.18)", '& .MuiLinearProgress-bar': { background: '#22c55e' } }} />
                                 </Box>
                                 <Box sx={{ display: "grid", gap: 2 }}>
                                     <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2 }}>
                                         <Box sx={{ p: 2, background: "rgba(255,255,255,0.04)", borderRadius: 2 }}>
-                                            <Typography sx={{ color: "#94a3b8", fontSize: 12, textTransform: "uppercase", mb: 1 }}>Daily Used</Typography>
-                                            <Typography sx={{ color: "#f8fafc", fontWeight: 700 }}>16 hrs</Typography>
+                                            <Typography sx={{ color: "#94a3b8", fontSize: 12, textTransform: "uppercase", mb: 1 }}>Utilisé aujourd'hui</Typography>
+                                            <Typography sx={{ color: "#f8fafc", fontWeight: 700 }}>16 h</Typography>
                                         </Box>
                                         <Box sx={{ p: 2, background: "rgba(255,255,255,0.04)", borderRadius: 2 }}>
-                                            <Typography sx={{ color: "#94a3b8", fontSize: 12, textTransform: "uppercase", mb: 1 }}>Monthly Limit</Typography>
-                                            <Typography sx={{ color: "#f8fafc", fontWeight: 700 }}>200 hrs</Typography>
+                                            <Typography sx={{ color: "#94a3b8", fontSize: 12, textTransform: "uppercase", mb: 1 }}>Limite mensuelle</Typography>
+                                            <Typography sx={{ color: "#f8fafc", fontWeight: 700 }}>200 h</Typography>
                                         </Box>
                                     </Box>
                                 </Box>

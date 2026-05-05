@@ -102,7 +102,7 @@ export default function Admin() {
                         {
                             title: "Users",
                             value: overview.usersCount,
-                            description: "Active accounts with access to the platform.",
+                            description: "Active accounts with platform access.",
                             icon: <Users size={20} />,
                             iconColor: "#22c55e",
                             bg: "rgba(34, 197, 94, 0.12)",
@@ -110,7 +110,7 @@ export default function Admin() {
                         {
                             title: "Videos",
                             value: overview.videosCount,
-                            description: "Uploads and stored footage across the library.",
+                            description: "Uploads and videos stored in the library.",
                             icon: <Database size={20} />,
                             iconColor: "#60a5fa",
                             bg: "rgba(59, 130, 246, 0.12)",
@@ -118,7 +118,7 @@ export default function Admin() {
                         {
                             title: "Live Streams",
                             value: overview.activeStreams,
-                            description: "Live match feeds currently active.",
+                            description: "Currently active live match streams.",
                             icon: <Activity size={20} />,
                             iconColor: "#38bdf8",
                             bg: "rgba(56, 189, 248, 0.12)",
@@ -229,7 +229,7 @@ export default function Admin() {
                                     <Typography variant="h6" sx={{ color: "#f8fafc", fontWeight: 700 }}>
                                         Platform Status
                                     </Typography>
-                                    <Typography sx={{ color: "#94a3b8" }}>Live metrics and admin alerts.</Typography>
+                                    <Typography sx={{ color: "#94a3b8" }}>Real-time metrics and admin alerts.</Typography>
                                 </Box>
                                 <Settings size={20} color="#94a3b8" />
                             </Box>
@@ -248,7 +248,7 @@ export default function Admin() {
                                         Health Check
                                     </Typography>
                                     <Typography variant="h5" sx={{ color: "#f8fafc", fontWeight: 700 }}>
-                                        {overview.activeStreams > 0 ? "Live" : "Idle"}
+                                        {overview.activeStreams > 0 ? "Live" : "Inactive"}
                                     </Typography>
                                 </Box>
                                 <Box sx={{ p: 2, borderRadius: 2, background: "rgba(255,255,255,0.04)" }}>
@@ -256,7 +256,7 @@ export default function Admin() {
                                         Admin Alerts
                                     </Typography>
                                     <Typography variant="h5" sx={{ color: "#f8fafc", fontWeight: 700 }}>
-                                        {overview.activeStreams > 5 ? "High load" : "Normal"}
+                                        {overview.activeStreams > 5 ? "High Load" : "Normal"}
                                     </Typography>
                                 </Box>
                             </Box>

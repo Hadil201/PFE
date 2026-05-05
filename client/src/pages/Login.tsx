@@ -47,14 +47,14 @@ const Login = () => {
         <Box className="login-page">
             <Paper className="login-card" elevation={0}>
                 <Stack spacing={2.5} sx={{ alignItems: "center" }}>
-                    <Typography variant="h4">Soccer Analysis</Typography>
+                    <Typography variant="h4">Analyse de Football</Typography>
                     <Typography color="text.secondary" sx={{ textAlign: "center" }}>
-                        Sign in to manage your videos, analysis jobs, and platform settings.
+                        Connectez-vous pour gérer vos vidéos, vos tâches d'analyse et les paramètres de la plateforme.
                     </Typography>
 
                     {credentials.name && (
                         <>
-                            <Typography>Welcome {credentials.name}</Typography>
+                            <Typography>Bienvenue {credentials.name}</Typography>
                             <img className="login-avatar" src={credentials.picture} alt="profile" />
                         </>
                     )}
@@ -64,7 +64,7 @@ const Login = () => {
                             <GoogleLogin
                                 onSuccess={handleGoogleLogin}
                                 onError={() => {
-                                    setError("Google Login Failed");
+                                    setError("Connexion Google échouée");
                                 }}
                             />
                         </>
@@ -79,7 +79,7 @@ const Login = () => {
                                 setError("");
                             }}
                         >
-                            Logout
+                            Déconnexion
                         </Button>
                     )}
                     {error && <Typography color="error">{error}</Typography>}

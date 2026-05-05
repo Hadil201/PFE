@@ -16,13 +16,13 @@ export default function Navbar() {
         >
             <Box>
                 <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: 0.3 }}>
-                    Performance Dashboard
+                    Tableau de bord des performances
                 </Typography>
                 <Typography variant="body2" sx={{ color: "#94a3b8" }}>
-                    Real-time match insights and inference health.
+                    Informations de match en temps réel et santé de l'inférence.
                 </Typography>
             </Box>
-           
+
         </Box>
     );
 }

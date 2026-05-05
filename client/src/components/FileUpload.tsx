@@ -26,13 +26,13 @@ export default function FileUpload({
 
     // Validate file type
     if (!file.type.startsWith('video/')) {
-      setError('Please select a video file');
+      setError('Veuillez sélectionner un fichier vidéo');
       return;
     }
 
     // Validate file size
     if (file.size > maxSize) {
-      setError(`File size must be less than ${Math.round(maxSize / 1024 / 1024)}MB`);
+      setError(`La taille du fichier doit être inférieure à ${Math.round(maxSize / 1024 / 1024)}MB`);
       return;
     }
 
