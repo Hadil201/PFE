@@ -96,6 +96,24 @@ const GENERATED_SPOTTINGS = [
     }
 ]
 
+const parseM3U = (m3uContent: string): string[] => {
+    const lines = m3uContent.split('\n');
+    const channels: string[] = [];
+    lines.forEach(line => {
+        if (line.startsWith('#EXTINF')) {
+            const match = line.match(/tvg-name="([^"]+)"|,(.*)/);
+            if (match) {
+                // Prioritize tvg-name if available, otherwise use the name after comma
+                const channelName = match[1] || match[2];
+                if (channelName) {
+                    channels.push(channelName.trim());
+                }
+            }
+        }
+    });
+    return channels;
+};
+
 export default function VideoAnalysis() {
     const [videos, setVideos] = useState<Video[]>([]);
     const [summarizationModels, setSummarizationModels] = useState<string[]>([]);
@@ -106,6 +124,8 @@ export default function VideoAnalysis() {
     const [sourceType, setSourceType] = useState<"youtube" | "stream" | "upload">("youtube");
     const [sourceUrl, setSourceUrl] = useState("");
     const [channelsUrl, setChannelsUrl] = useState("");
+    const [channelsList, setChannelsList] = useState<string[]>([]);
+    const [selectedChannel, setSelectedChannel] = useState("");
     const [uploadFile, setUploadFile] = useState<File | null>(null);
     const [startTime, setStartTime] = useState(0);
     const [endTime, setEndTime] = useState(0);
@@ -120,6 +140,30 @@ export default function VideoAnalysis() {
         () => videos.find((video) => video._id === selectedVideoId),
         [selectedVideoId, videos]
     );
+
+    useEffect(() => {
+        const fetchChannels = async () => {
+            if (sourceType === "stream" && channelsUrl) {
+                try {
+                    const response = await fetch(channelsUrl);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    const text = await response.text();
+                    const channelNames = parseM3U(text);
+                    setChannelsList(channelNames);
+                    setSelectedChannel(channelNames[0] || "");
+                } catch (error) {
+                    console.error("Error fetching or parsing M3U: ", error);
+                    setErrorMessage("Impossible de charger les chaînes depuis l'URL.");
+                    setChannelsList([]);
+                    setSelectedChannel(""); // Clear the list on error
+                }
+            }
+        };
+
+        void fetchChannels();
+    }, [channelsUrl, sourceType]);
 
     const refreshData = async () => {
         setLoadingModels(true);
@@ -292,13 +336,30 @@ export default function VideoAnalysis() {
                             )}
                             
                             {sourceType === "stream" && (
-                                <TextField
-                                    size="small"
-                                    fullWidth
-                                    label="URL des chaînes"
-                                    value={channelsUrl}
-                                    onChange={(event) => setChannelsUrl(event.target.value)}
-                                />
+                                <>
+                                    <TextField
+                                        size="small"
+                                        fullWidth
+                                        label="URL des chaînes"
+                                        value={channelsUrl}
+                                        onChange={(event) => setChannelsUrl(event.target.value)}
+                                    />
+                                    <Select
+                                        size="small"
+                                        fullWidth
+                                        label="Liste des chaînes"
+                                        value={selectedChannel}
+                                        onChange={(event) => setSelectedChannel(event.target.value)}
+                                        displayEmpty
+                                    >
+                                        <MenuItem value="">Sélectionner une chaîne</MenuItem>
+                                        {channelsList.map((channel, index) => (
+                                            <MenuItem key={index} value={channel}>
+                                                {channel}
+                                            </MenuItem>
+                                        ))}
+                                    </Select>
+                                </>
                             )}
                             
                             {sourceType === "upload" && (
