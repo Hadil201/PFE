@@ -5,9 +5,9 @@ import {
     Alert,
     Box,
     Button,
+    ButtonGroup,
     Card,
     CardContent,
-    Checkbox,
     FormControl,
     FormControlLabel,
     MenuItem,
@@ -20,7 +20,7 @@ import {
 } from "@mui/material";
 import { useEffect, useMemo, useState } from "react";
 import { io } from "socket.io-client";
-import { addStream, addYoutube, getActionClasses, getSummarizationModels, getVideos, startInference, uploadVideo } from "../services/api";
+import { addStream, addYoutube, getSummarizationModels, getVideos, startInference, uploadVideo } from "../services/api";
 import type { Video, ActionEvent } from "../types/video";
 
 const GENERATED_SPOTTINGS = [
@@ -98,15 +98,15 @@ const GENERATED_SPOTTINGS = [
 
 export default function VideoAnalysis() {
     const [videos, setVideos] = useState<Video[]>([]);
-    const [classes, setClasses] = useState<string[]>([]);
     const [summarizationModels, setSummarizationModels] = useState<string[]>([]);
     const [selectedVideoId, setSelectedVideoId] = useState("");
-    const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
-    const [modelName, setModelName] = useState("action-spotting-v1");
+    const [modelName, setModelName] = useState("V1");
     const [chunkDuration, setChunkDuration] = useState(5);
     const [inferenceType, setInferenceType] = useState<"action-spotting" | "summarization">("action-spotting");
     const [sourceType, setSourceType] = useState<"youtube" | "stream" | "upload">("youtube");
     const [sourceUrl, setSourceUrl] = useState("");
+    const [channelsUrl, setChannelsUrl] = useState("");
+    const [uploadFile, setUploadFile] = useState<File | null>(null);
     const [startTime, setStartTime] = useState(0);
     const [endTime, setEndTime] = useState(0);
     const [timeline, setTimeline] = useState<ActionEvent[]>(GENERATED_SPOTTINGS);
@@ -114,7 +114,6 @@ export default function VideoAnalysis() {
     const [statusMessage, setStatusMessage] = useState("");
     const [errorMessage, setErrorMessage] = useState("");
     const [summary, setSummary] = useState("");
-    const [loadingActions, setLoadingActions] = useState(true);
     const [loadingModels, setLoadingModels] = useState(true);
 
     const selectedVideo = useMemo(
@@ -123,16 +122,13 @@ export default function VideoAnalysis() {
     );
 
     const refreshData = async () => {
-        setLoadingActions(true);
         setLoadingModels(true);
         try {
-            const [videosData, classData, summarizationData] = await Promise.all([
+            const [videosData, summarizationData] = await Promise.all([
                 getVideos(),
-                getActionClasses(),
                 getSummarizationModels(),
             ]);
             setVideos(videosData);
-            setClasses(classData);
             setSummarizationModels(summarizationData);
             if (!selectedVideoId && videosData.length > 0) {
                 setSelectedVideoId(videosData[0]._id);
@@ -141,7 +137,6 @@ export default function VideoAnalysis() {
             console.error("Impossible de charger les données d'analyse", error);
             setErrorMessage(error?.response?.data?.message ?? "Impossible de charger les vidéos ou les options d'analyse.");
         } finally {
-            setLoadingActions(false);
             setLoadingModels(false);
         }
     };
@@ -181,10 +176,18 @@ export default function VideoAnalysis() {
     }, [selectedVideoId]);
 
     const handleSourceSubmit = async () => {
-        if (!sourceUrl.trim()) {
+        const urlToUse = sourceType === "stream" ? channelsUrl : sourceUrl;
+        
+        if (!urlToUse?.trim() && sourceType !== "upload") {
             setErrorMessage("Veuillez fournir une URL source ou un chemin de fichier.");
             return;
         }
+        
+        if (sourceType === "upload" && !uploadFile) {
+            setErrorMessage("Veuillez sélectionner un fichier vidéo.");
+            return;
+        }
+        
         setErrorMessage("");
         setStatusMessage("");
 
@@ -192,14 +195,14 @@ export default function VideoAnalysis() {
             let createdVideo: Video | null = null;
 
             if (sourceType === "youtube") {
-                const response = await addYoutube(sourceUrl.trim());
+                const response = await addYoutube(urlToUse.trim());
                 createdVideo = response as Video;
             } else if (sourceType === "stream") {
-                const response = await addStream(sourceUrl.trim());
+                const response = await addStream(urlToUse.trim());
                 createdVideo = response as Video;
             } else {
                 const response = await uploadVideo({
-                    title: sourceUrl.trim(),
+                    title: uploadFile?.name || sourceUrl.trim(),
                     url: sourceUrl.trim(),
                     startTime: startTime || undefined,
                     endTime: endTime || undefined,
@@ -213,6 +216,8 @@ export default function VideoAnalysis() {
             }
 
             setSourceUrl("");
+            setChannelsUrl("");
+            setUploadFile(null);
             setStartTime(0);
             setEndTime(0);
             setStatusMessage("L'analyse a démarrée avec succès.");
@@ -227,10 +232,6 @@ export default function VideoAnalysis() {
             setErrorMessage("Sélectionnez d'abord une vidéo.");
             return;
         }
-        if (inferenceType === "action-spotting" && selectedClasses.length === 0) {
-            setErrorMessage("Sélectionnez au moins une classe d'action.");
-            return;
-        }
         setTimeline([]);
         setPlayhead(0);
         setSummary("");
@@ -239,7 +240,7 @@ export default function VideoAnalysis() {
         try {
             await startInference({
                 videoId: selectedVideoId,
-                selectedClasses: inferenceType === "action-spotting" ? selectedClasses : [],
+                selectedClasses: [],
                 modelName,
                 chunkDuration,
                 inferenceType,
@@ -259,24 +260,69 @@ export default function VideoAnalysis() {
                 <Card className="app-card">
                     <CardContent>
                         <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
-                            <Select
-                                size="small"
-                                value={sourceType}
-                                onChange={(event) =>
-                                    setSourceType(event.target.value as "youtube" | "stream" | "upload")
-                                }
-                            >
-                                <MenuItem value="youtube">YouTube</MenuItem>
-                                <MenuItem value="stream">Flux M3U</MenuItem>
-                                <MenuItem value="upload">Télécharger (métadonnées)</MenuItem>
-                            </Select>
-                            <TextField
-                                size="small"
-                                fullWidth
-                                label="URL vidéo ou nom de fichier"
-                                value={sourceUrl}
-                                onChange={(event) => setSourceUrl(event.target.value)}
-                            />
+                            <ButtonGroup>
+                                <Button 
+                                    variant={sourceType === "youtube" ? "contained" : "outlined"}
+                                    onClick={() => setSourceType("youtube")}
+                                >
+                                    YouTube
+                                </Button>
+                                <Button 
+                                    variant={sourceType === "stream" ? "contained" : "outlined"}
+                                    onClick={() => setSourceType("stream")}
+                                >
+                                    Flux M3U
+                                </Button>
+                                <Button 
+                                    variant={sourceType === "upload" ? "contained" : "outlined"}
+                                    onClick={() => setSourceType("upload")}
+                                >
+                                    Télécharger
+                                </Button>
+                            </ButtonGroup>
+                            
+                            {sourceType === "youtube" && (
+                                <TextField
+                                    size="small"
+                                    fullWidth
+                                    label="URL YouTube"
+                                    value={sourceUrl}
+                                    onChange={(event) => setSourceUrl(event.target.value)}
+                                />
+                            )}
+                            
+                            {sourceType === "stream" && (
+                                <TextField
+                                    size="small"
+                                    fullWidth
+                                    label="URL des chaînes"
+                                    value={channelsUrl}
+                                    onChange={(event) => setChannelsUrl(event.target.value)}
+                                />
+                            )}
+                            
+                            {sourceType === "upload" && (
+                                <Button
+                                    variant="outlined"
+                                    component="label"
+                                    sx={{ minWidth: '200px' }}
+                                >
+                                    Télécharger une vidéo
+                                    <input
+                                        type="file"
+                                        accept="video/*"
+                                        style={{ display: 'none' }}
+                                        onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
+                                            const file = event.target.files?.[0];
+                                            if (file) {
+                                                setUploadFile(file);
+                                                setSourceUrl(file.name);
+                                            }
+                                        }}
+                                    />
+                                </Button>
+                            )}
+                            
                             {sourceType === "upload" && (
                                 <>
                                     <TextField
@@ -295,31 +341,10 @@ export default function VideoAnalysis() {
                                     />
                                 </>
                             )}
-                            <Button
-                                variant="outlined"
-                                onClick={() => void handleSourceSubmit()}
-                                disabled={!sourceUrl.trim()}
-                            >
-                                Ajouter une source
-                            </Button>
-                        </Stack>
+                            
+                                                    </Stack>
 
                         <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
-                            <Select
-                                size="small"
-                                fullWidth
-                                value={selectedVideoId}
-                                onChange={(event) => setSelectedVideoId(event.target.value)}
-                            >
-                                <MenuItem value="" disabled>
-                                    {videos.length > 0 ? "Sélectionner une vidéo" : "Aucune vidéo disponible"}
-                                </MenuItem>
-                                {videos.map((video) => (
-                                    <MenuItem key={video._id} value={video._id}>
-                                        {video.title}
-                                    </MenuItem>
-                                ))}
-                            </Select>
                             <TextField
                                 size="small"
                                 label="Morceau (sec)"
@@ -331,44 +356,36 @@ export default function VideoAnalysis() {
                             <Select
                                 size="small"
                                 value={inferenceType}
-                                onChange={(event) => setInferenceType(event.target.value as "action-spotting" | "summarization")}
+                                onChange={(event) => {
+                                    const newType = event.target.value as "action-spotting" | "summarization";
+                                    setInferenceType(newType);
+                                    setModelName(newType === "action-spotting" ? "V1" : "S1");
+                                }}
                             >
                                 <MenuItem value="action-spotting">Détection d'action</MenuItem>
                                 <MenuItem value="summarization">Résumé</MenuItem>
                             </Select>
-                            <TextField
+                            <Select
                                 size="small"
-                                label="Modèle"
+                                label="Détection d'action et résumé"
                                 value={modelName}
                                 onChange={(event) => setModelName(event.target.value)}
-                            />
+                            >
+                                {inferenceType === "action-spotting" ? (
+                                    <>
+                                        <MenuItem value="V1">V1</MenuItem>
+                                        <MenuItem value="V2">V2</MenuItem>
+                                    </>
+                                ) : (
+                                    <>
+                                        <MenuItem value="S1">S1</MenuItem>
+                                        <MenuItem value="S2">S2</MenuItem>
+                                    </>
+                                )}
+                            </Select>
                         </Stack>
 
                         <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 1 }}>
-                            {inferenceType === "action-spotting" && loadingActions && (
-                                <Typography color="text.secondary">Chargement des classes d'action...</Typography>
-                            )}
-                            {inferenceType === "action-spotting" && !loadingActions && classes.length === 0 && (
-                                <Typography color="text.secondary">Aucune classe d'action disponible.</Typography>
-                            )}
-                            {inferenceType === "action-spotting" && classes.map((actionClass) => (
-                                <FormControlLabel
-                                    key={actionClass}
-                                    control={
-                                        <Checkbox
-                                            checked={selectedClasses.includes(actionClass)}
-                                            onChange={(event) => {
-                                                setSelectedClasses((prev) =>
-                                                    event.target.checked
-                                                        ? [...prev, actionClass]
-                                                        : prev.filter((item) => item !== actionClass)
-                                                );
-                                            }}
-                                        />
-                                    }
-                                    label={actionClass}
-                                />
-                            ))}
                             {inferenceType === "summarization" && loadingModels && (
                                 <Typography color="text.secondary">Chargement des modèles de résumé...</Typography>
                             )}
@@ -400,7 +417,7 @@ export default function VideoAnalysis() {
                     <Button
                         variant="contained"
                         onClick={() => void handleStart()}
-                        disabled={!selectedVideoId || (inferenceType === "action-spotting" && selectedClasses.length === 0)}
+                        disabled={!selectedVideoId}
                     >
                         Commencer l'analyse
                     </Button>

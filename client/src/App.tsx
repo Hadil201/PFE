@@ -55,7 +55,7 @@ export default function App() {
     <ThemeProvider theme={theme}>
       <BrowserRouter>
         <Routes>
-          <Route path="/login" element={<Login />} />
+    -       <Route path="/login" element={<Login />} />
           <Route path="/" element={<RequireAuth><Dashboard /></RequireAuth>} />
           <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
           <Route path="/library" element={<RequireAuth><Library /></RequireAuth>} />
