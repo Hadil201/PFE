@@ -10,12 +10,19 @@ import {
     DialogActions,
     DialogContent,
     DialogTitle,
+    IconButton,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
     TextField,
     Typography,
 } from "@mui/material";
 import { useEffect, useState } from "react";
-import { Activity, Database, Lock, Settings, Unlock, Users } from "lucide-react";
-import { blockUser, getAdminOverview, getAdminUsers, unblockUser, setUserQuota, getAllQuotas } from "../services/api";
+import { Download, Pencil, Plus, Slash, Unlock } from "lucide-react";
+import { blockUser, getAdminUsers, unblockUser, setUserQuota, getAllQuotas } from "../services/api";
 import type { AppUser } from "../types/auth";
 
 interface Quota {
@@ -29,20 +36,16 @@ interface Quota {
 }
 
 export default function Admin() {
-    const [overview, setOverview] = useState({
-        usersCount: 0,
-        videosCount: 0,
-        activeStreams: 0,
-        processingVideos: 0,
-    });
     const [users, setUsers] = useState<AppUser[]>([]);
     const [quotas, setQuotas] = useState<Quota[]>([]);
     const [quotaDialog, setQuotaDialog] = useState<{ open: boolean; user?: AppUser }>({ open: false });
-    const [quotaValues, setQuotaValues] = useState({ dailyLimit: 0, weeklyLimit: 0, monthlyLimit: 0 });
+    const [quotaValues, setQuotaValues] = useState({ dailyLimit: 12, weeklyLimit: 500, monthlyLimit: 5 });
+    const [globalQuotaValues, setGlobalQuotaValues] = useState({ dailyLimit: 12, weeklyLimit: 500, simultaneousStreams: 5 });
+    const [isSavingQuota, setIsSavingQuota] = useState(false);
+    const [isApplyingGlobal, setIsApplyingGlobal] = useState(false);
 
     const loadAdminData = async () => {
-        const [overviewData, usersData, quotasData] = await Promise.all([getAdminOverview(), getAdminUsers(), getAllQuotas()]);
-        setOverview(overviewData);
+        const [usersData, quotasData] = await Promise.all([getAdminUsers(), getAllQuotas()]);
         setUsers(usersData);
         setQuotas(quotasData);
     };
@@ -50,6 +53,28 @@ export default function Admin() {
     useEffect(() => {
         void loadAdminData();
     }, []);
+
+    const formatCsvCell = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`;
+
+    const exportCsv = () => {
+        const headers = ["Username", "Email", "Role", "Status"];
+        const rows = users.map((user) => [
+            formatCsvCell(user.name),
+            formatCsvCell(user.email),
+            formatCsvCell(user.role),
+            formatCsvCell(user.blocked ? "Blocked" : "Active"),
+        ]);
+        const csv = [headers.join(","), ...rows.map((row) => row.join(","))].join("\n");
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute("download", "admin-users.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
 
     const handleOpenQuotaDialog = (user: AppUser) => {
         const userQuota = quotas.find((q) => q.email.toLowerCase() === user.email.toLowerCase());
@@ -63,9 +88,29 @@ export default function Admin() {
 
     const handleSaveQuota = async () => {
         if (!quotaDialog.user) return;
+        setIsSavingQuota(true);
         await setUserQuota(quotaDialog.user.email, quotaValues);
+        setIsSavingQuota(false);
         setQuotaDialog({ open: false });
         await loadAdminData();
+    };
+
+    const handleApplyGlobalQuotas = async () => {
+        setIsApplyingGlobal(true);
+        await Promise.all(
+            users.map((user) =>
+                setUserQuota(user.email, {
+                    dailyLimit: globalQuotaValues.dailyLimit,
+                    weeklyLimit: globalQuotaValues.weeklyLimit,
+                })
+            )
+        );
+        setIsApplyingGlobal(false);
+        await loadAdminData();
+    };
+
+    const handleRestoreDefaults = () => {
+        setGlobalQuotaValues({ dailyLimit: 12, weeklyLimit: 500, simultaneousStreams: 5 });
     };
 
     return (
@@ -77,192 +122,183 @@ export default function Admin() {
                             Admin Console
                         </Typography>
                         <Typography sx={{ color: "#94a3b8", mt: 1 }}>
-                            Manage users, quotas, and platform health from a single analytics view.
+                            Manage users and quota settings from a single administrator dashboard.
                         </Typography>
                     </Box>
                     <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
                         <Button
-                            variant="contained"
-                            sx={{ background: "#22c55e", color: "#020617", fontWeight: 700, '&:hover': { background: '#16a34a' } }}
+                            variant="outlined"
+                            startIcon={<Download size={16} />}
+                            sx={{ borderColor: "rgba(148, 163, 184, 0.24)", color: "#e2e8f0" }}
+                            onClick={exportCsv}
                         >
-                            Create User
+                            Export CSV
                         </Button>
                         <Button
-                            variant="outlined"
-                            sx={{ borderColor: "rgba(148, 163, 184, 0.24)", color: "#e2e8f0" }}
-                            onClick={() => void loadAdminData()}
+                            variant="contained"
+                            startIcon={<Plus size={16} />}
+                            sx={{ background: "#22c55e", color: "#020617", fontWeight: 700, '&:hover': { background: '#16a34a' } }}
                         >
-                            Refresh
+                            Add User
                         </Button>
                     </Box>
                 </Box>
 
-                <Box sx={{ display: "grid", gap: 3, gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(0, 1fr))" } }}>
-                    {[
-                        {
-                            title: "Users",
-                            value: overview.usersCount,
-                            description: "Active accounts with platform access.",
-                            icon: <Users size={20} />,
-                            iconColor: "#22c55e",
-                            bg: "rgba(34, 197, 94, 0.12)",
-                        },
-                        {
-                            title: "Videos",
-                            value: overview.videosCount,
-                            description: "Uploads and videos stored in the library.",
-                            icon: <Database size={20} />,
-                            iconColor: "#60a5fa",
-                            bg: "rgba(59, 130, 246, 0.12)",
-                        },
-                        {
-                            title: "Live Streams",
-                            value: overview.activeStreams,
-                            description: "Currently active live match streams.",
-                            icon: <Activity size={20} />,
-                            iconColor: "#38bdf8",
-                            bg: "rgba(56, 189, 248, 0.12)",
-                        },
-                    ].map((card) => (
-                        <Card key={card.title} className="app-card">
-                            <CardContent>
-                                <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
-                                    <Box sx={{ p: 2, borderRadius: 2, background: card.bg, color: card.iconColor }}>
-                                        {card.icon}
-                                    </Box>
-                                    <Box>
-                                        <Typography variant="overline" sx={{ color: "#94a3b8", letterSpacing: 1.5 }}>
-                                            {card.title}
-                                        </Typography>
-                                        <Typography variant="h4" sx={{ color: "#f8fafc", fontWeight: 800 }}>
-                                            {card.value}
-                                        </Typography>
-                                    </Box>
-                                </Box>
-                                <Typography sx={{ color: "#94a3b8" }}>{card.description}</Typography>
-                            </CardContent>
-                        </Card>
-                    ))}
-                </Box>
-
-                <Box sx={{ display: "grid", gap: 3, gridTemplateColumns: { xs: "1fr", lg: "3fr 1fr" } }}>
-                    <Card className="app-card">
-                        <CardContent>
-                            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3, flexWrap: "wrap", gap: 2 }}>
-                                <Box>
-                                    <Typography variant="h6" sx={{ color: "#f8fafc", fontWeight: 700 }}>
-                                        User Management
-                                    </Typography>
-                                    <Typography sx={{ color: "#94a3b8" }}>Block accounts and update quota allocations for each user.</Typography>
-                                </Box>
-                                <Chip label="Admin View" sx={{ background: "rgba(34, 197, 94, 0.12)", color: "#22c55e", fontWeight: 700 }} />
+                <Card className="app-card">
+                    <CardContent>
+                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 2, mb: 3 }}>
+                            <Box>
+                                <Typography variant="h6" sx={{ color: "#f8fafc", fontWeight: 700 }}>
+                                    User Management
+                                </Typography>
+                                <Typography sx={{ color: "#94a3b8" }}>
+                                    Review account details, status, and access controls.
+                                </Typography>
                             </Box>
+                        </Box>
 
-                            <Box sx={{ display: "grid", gap: 2 }}>
-                                {users.map((user) => {
-                                    const userQuota = quotas.find((q) => q.email.toLowerCase() === user.email.toLowerCase());
-                                    return (
-                                        <Card key={user.email} sx={{ background: "rgba(15, 23, 42, 0.92)", border: "1px solid rgba(148, 163, 184, 0.12)" }}>
-                                            <CardContent>
-                                                <Box sx={{ display: "flex", justifyContent: "space-between", gap: 3, flexWrap: "wrap" }}>
-                                                    <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                                                        <Avatar sx={{ bgcolor: "#0f172a", color: "#22c55e" }}>
-                                                            {user.name?.charAt(0).toUpperCase() ?? "U"}
-                                                        </Avatar>
-                                                        <Box>
-                                                            <Typography sx={{ color: "#f8fafc", fontWeight: 700 }}>{user.name}</Typography>
-                                                            <Typography sx={{ color: "#94a3b8", fontSize: 13 }}>{user.email}</Typography>
-                                                            <Typography sx={{ color: "#94a3b8", fontSize: 13 }}>Role: {user.role}</Typography>
-                                                        </Box>
-                                                    </Box>
-
-                                                    <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 1 }}>
-                                                        <Chip
-                                                            label={user.blocked ? "Blocked" : "Active"}
-                                                            sx={{
-                                                                background: user.blocked ? "rgba(239, 68, 68, 0.12)" : "rgba(34, 197, 94, 0.12)",
-                                                                color: user.blocked ? "#f87171" : "#22c55e",
-                                                                fontWeight: 700,
-                                                            }}
-                                                        />
-                                                        <Typography sx={{ color: "#94a3b8", fontSize: 13 }}>
-                                                            {userQuota
-                                                                ? `${userQuota.dailyUsed}/${userQuota.dailyLimit}d • ${userQuota.weeklyUsed}/${userQuota.weeklyLimit}w`
-                                                                : "No quota data"}
-                                                        </Typography>
+                        <TableContainer sx={{ background: "transparent" }}>
+                            <Table>
+                                <TableHead>
+                                    <TableRow>
+                                        <TableCell sx={{ color: "#94a3b8", fontWeight: 700, borderBottom: "1px solid rgba(148, 163, 184, 0.16)" }}>
+                                            USERNAME
+                                        </TableCell>
+                                        <TableCell sx={{ color: "#94a3b8", fontWeight: 700, borderBottom: "1px solid rgba(148, 163, 184, 0.16)" }}>
+                                            EMAIL
+                                        </TableCell>
+                                        <TableCell sx={{ color: "#94a3b8", fontWeight: 700, borderBottom: "1px solid rgba(148, 163, 184, 0.16)" }}>
+                                            ROLE
+                                        </TableCell>
+                                        <TableCell sx={{ color: "#94a3b8", fontWeight: 700, borderBottom: "1px solid rgba(148, 163, 184, 0.16)" }}>
+                                            STATUS
+                                        </TableCell>
+                                        <TableCell align="right" sx={{ color: "#94a3b8", fontWeight: 700, borderBottom: "1px solid rgba(148, 163, 184, 0.16)" }}>
+                                            ACTIONS
+                                        </TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {users.map((user) => (
+                                        <TableRow key={user.email}>
+                                            <TableCell sx={{ borderBottom: "1px solid rgba(148, 163, 184, 0.08)" }}>
+                                                <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                                                    <Avatar sx={{ bgcolor: "#0f172a", color: "#22c55e" }}>
+                                                        {user.name?.charAt(0).toUpperCase() ?? "U"}
+                                                    </Avatar>
+                                                    <Box>
+                                                        <Typography sx={{ color: "#f8fafc", fontWeight: 700 }}>{user.name}</Typography>
+                                                        <Typography sx={{ color: "#94a3b8", fontSize: 13 }}>{user.email}</Typography>
                                                     </Box>
                                                 </Box>
-
-                                                <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mt: 3 }}>
-                                                    <Button
-                                                        variant="outlined"
+                                            </TableCell>
+                                            <TableCell sx={{ color: "#94a3b8", borderBottom: "1px solid rgba(148, 163, 184, 0.08)" }}>
+                                                {user.email}
+                                            </TableCell>
+                                            <TableCell sx={{ color: "#f8fafc", borderBottom: "1px solid rgba(148, 163, 184, 0.08)" }}>
+                                                {user.role}
+                                            </TableCell>
+                                            <TableCell sx={{ borderBottom: "1px solid rgba(148, 163, 184, 0.08)" }}>
+                                                <Chip
+                                                    label={user.blocked ? "Blocked" : "Active"}
+                                                    sx={{
+                                                        background: user.blocked ? "rgba(239, 68, 68, 0.12)" : "rgba(34, 197, 94, 0.12)",
+                                                        color: user.blocked ? "#f87171" : "#22c55e",
+                                                        fontWeight: 700,
+                                                    }}
+                                                />
+                                            </TableCell>
+                                            <TableCell align="right" sx={{ borderBottom: "1px solid rgba(148, 163, 184, 0.08)" }}>
+                                                <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1 }}>
+                                                    <IconButton
                                                         size="small"
-                                                        sx={{ borderColor: "rgba(148, 163, 184, 0.24)", color: "#e2e8f0" }}
+                                                        sx={{
+                                                            color: "#94a3b8",
+                                                            border: "1px solid rgba(148, 163, 184, 0.16)",
+                                                            '&:hover': { background: 'rgba(255,255,255,0.06)' },
+                                                        }}
                                                         onClick={() => handleOpenQuotaDialog(user)}
                                                     >
-                                                        Manage Quota
-                                                    </Button>
-                                                    <Button
-                                                        variant="contained"
+                                                        <Pencil size={16} />
+                                                    </IconButton>
+                                                    <IconButton
                                                         size="small"
-                                                        color={user.blocked ? "success" : "error"}
-                                                        startIcon={user.blocked ? <Unlock size={16} /> : <Lock size={16} />}
-                                                        onClick={() =>
-                                                            void (user.blocked ? unblockUser(user.email) : blockUser(user.email)).then(loadAdminData)
-                                                        }
+                                                        sx={{
+                                                            color: user.blocked ? "#22c55e" : "#f87171",
+                                                            border: "1px solid rgba(148, 163, 184, 0.16)",
+                                                            '&:hover': { background: 'rgba(255,255,255,0.06)' },
+                                                        }}
+                                                        onClick={() => void (user.blocked ? unblockUser(user.email) : blockUser(user.email)).then(loadAdminData)}
                                                     >
-                                                        {user.blocked ? "Unblock" : "Block"}
-                                                    </Button>
+                                                        {user.blocked ? <Unlock size={16} /> : <Slash size={16} />}
+                                                    </IconButton>
                                                 </Box>
-                                            </CardContent>
-                                        </Card>
-                                    );
-                                })}
-                            </Box>
-                        </CardContent>
-                    </Card>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+                    </CardContent>
+                </Card>
 
-                    <Card className="app-card">
-                        <CardContent>
-                            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
-                                <Box>
-                                    <Typography variant="h6" sx={{ color: "#f8fafc", fontWeight: 700 }}>
-                                        Platform Status
-                                    </Typography>
-                                    <Typography sx={{ color: "#94a3b8" }}>Real-time metrics and admin alerts.</Typography>
-                                </Box>
-                                <Settings size={20} color="#94a3b8" />
+                <Card className="app-card">
+                    <CardContent>
+                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 2, mb: 3 }}>
+                            <Box>
+                                <Typography variant="h6" sx={{ color: "#f8fafc", fontWeight: 700 }}>
+                                    Quota Configuration
+                                </Typography>
+                                <Typography sx={{ color: "#94a3b8" }}>
+                                    Apply global quotas for all active users.
+                                </Typography>
                             </Box>
+                            <Chip label="Global" sx={{ background: "rgba(59, 130, 246, 0.12)", color: "#60a5fa", fontWeight: 700 }} />
+                        </Box>
 
-                            <Box sx={{ display: "grid", gap: 2 }}>
-                                <Box sx={{ p: 2, borderRadius: 2, background: "rgba(255,255,255,0.04)" }}>
-                                    <Typography sx={{ color: "#94a3b8", fontSize: 12, textTransform: "uppercase", mb: 1 }}>
-                                        Queue Load
-                                    </Typography>
-                                    <Typography variant="h5" sx={{ color: "#f8fafc", fontWeight: 700 }}>
-                                        {overview.processingVideos}
-                                    </Typography>
-                                </Box>
-                                <Box sx={{ p: 2, borderRadius: 2, background: "rgba(255,255,255,0.04)" }}>
-                                    <Typography sx={{ color: "#94a3b8", fontSize: 12, textTransform: "uppercase", mb: 1 }}>
-                                        Health Check
-                                    </Typography>
-                                    <Typography variant="h5" sx={{ color: "#f8fafc", fontWeight: 700 }}>
-                                        {overview.activeStreams > 0 ? "Live" : "Inactive"}
-                                    </Typography>
-                                </Box>
-                                <Box sx={{ p: 2, borderRadius: 2, background: "rgba(255,255,255,0.04)" }}>
-                                    <Typography sx={{ color: "#94a3b8", fontSize: 12, textTransform: "uppercase", mb: 1 }}>
-                                        Admin Alerts
-                                    </Typography>
-                                    <Typography variant="h5" sx={{ color: "#f8fafc", fontWeight: 700 }}>
-                                        {overview.activeStreams > 5 ? "High Load" : "Normal"}
-                                    </Typography>
-                                </Box>
-                            </Box>
-                        </CardContent>
-                    </Card>
-                </Box>
+                        <Box sx={{ display: "grid", gap: 3 }}>
+                            <TextField
+                                label="Daily Limit (Hours)"
+                                type="number"
+                                value={globalQuotaValues.dailyLimit}
+                                onChange={(e) => setGlobalQuotaValues((prev) => ({ ...prev, dailyLimit: Number(e.target.value) }))}
+                                InputLabelProps={{ shrink: true }}
+                            />
+                            <TextField
+                                label="Weekly Limit (GB)"
+                                type="number"
+                                value={globalQuotaValues.weeklyLimit}
+                                onChange={(e) => setGlobalQuotaValues((prev) => ({ ...prev, weeklyLimit: Number(e.target.value) }))}
+                                InputLabelProps={{ shrink: true }}
+                            />
+                            <TextField
+                                label="Simultaneous Streams"
+                                type="number"
+                                value={globalQuotaValues.simultaneousStreams}
+                                onChange={(e) => setGlobalQuotaValues((prev) => ({ ...prev, simultaneousStreams: Number(e.target.value) }))}
+                                InputLabelProps={{ shrink: true }}
+                            />
+                        </Box>
+
+                        <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, flexWrap: "wrap", mt: 4 }}>
+                            <Button
+                                variant="outlined"
+                                sx={{ borderColor: "rgba(148, 163, 184, 0.24)", color: "#e2e8f0" }}
+                                onClick={handleRestoreDefaults}
+                            >
+                                Restore Defaults
+                            </Button>
+                            <Button
+                                variant="contained"
+                                sx={{ background: "#22c55e", color: "#020617", fontWeight: 700, '&:hover': { background: '#16a34a' } }}
+                                onClick={handleApplyGlobalQuotas}
+                                disabled={isApplyingGlobal}
+                            >
+                                Apply Global Quotas
+                            </Button>
+                        </Box>
+                    </CardContent>
+                </Card>
 
                 <Dialog open={quotaDialog.open} onClose={() => setQuotaDialog({ open: false })}>
                     <DialogTitle>Manage Quota for {quotaDialog.user?.name}</DialogTitle>
@@ -290,7 +326,9 @@ export default function Admin() {
                     </DialogContent>
                     <DialogActions>
                         <Button onClick={() => setQuotaDialog({ open: false })}>Cancel</Button>
-                        <Button onClick={() => void handleSaveQuota()}>Save</Button>
+                        <Button onClick={() => void handleSaveQuota()} disabled={isSavingQuota}>
+                            Save
+                        </Button>
                     </DialogActions>
                 </Dialog>
             </Box>

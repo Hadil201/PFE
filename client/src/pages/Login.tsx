@@ -1,4 +1,4 @@
-import { Box, Button, Paper, Stack, Typography } from "@mui/material";
+import { Box, Button, Checkbox, FormControlLabel, Paper, Stack, Typography } from "@mui/material";
 import { GoogleLogin, googleLogout } from "@react-oauth/google";
 import type { CredentialResponse } from "@react-oauth/google";
 import { jwtDecode } from "jwt-decode";
@@ -16,6 +16,7 @@ const Login = () => {
     const navigate = useNavigate();
     const [credentials, setCredentials] = useState<GoogleProfile>({});
     const [error, setError] = useState("");
+    const [adminMode, setAdminMode] = useState(false);
 
     const handleGoogleLogin = (credentialResponse: CredentialResponse) => {
         if (!credentialResponse.credential) {
@@ -28,13 +29,14 @@ const Login = () => {
         }
 
         // Create a local token (mimicking backend behavior)
-        const token = btoa(JSON.stringify({ email: profile.email, role: "user" }));
+        const role = adminMode ? "admin" : "user";
+        const token = btoa(JSON.stringify({ email: profile.email, role }));
 
         const user = {
             email: profile.email,
             name: profile.name,
             picture: profile.picture,
-            role: "user" as const,
+            role: role as const,
             blocked: false,
         };
 
@@ -61,6 +63,17 @@ const Login = () => {
 
                     {!credentials.name && (
                         <>
+                            <FormControlLabel
+                                control={
+                                    <Checkbox
+                                        checked={adminMode}
+                                        onChange={(event) => setAdminMode(event.target.checked)}
+                                        sx={{ color: "#22c55e" }}
+                                    />
+                                }
+                                label="Se connecter en tant qu'administrateur"
+                                sx={{ color: "#e2e8f0", alignSelf: "flex-start" }}
+                            />
                             <GoogleLogin
                                 onSuccess={handleGoogleLogin}
                                 onError={() => {

@@ -21,7 +21,15 @@ export const getUser = (): AppUser | null => {
         return null;
     }
     try {
-        return JSON.parse(raw) as AppUser;
+        const stored = JSON.parse(raw) as Partial<AppUser>;
+        const role = typeof stored.role === "string" ? stored.role.toLowerCase() : "user";
+        return {
+            email: stored.email ?? "",
+            name: stored.name ?? "",
+            picture: stored.picture,
+            role: role === "admin" ? "admin" : "user",
+            blocked: stored.blocked ?? false,
+        };
     } catch {
         return null;
     }
