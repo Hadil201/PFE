@@ -271,6 +271,37 @@ export default function VideoAnalysis() {
         }
     };
 
+    const generateTimelineSummary = () => {
+        if (timeline.length === 0) return "Aucun événement détecté dans la timeline.";
+        
+        const eventCounts = timeline.reduce((acc, event) => {
+            acc[event.label] = (acc[event.label] || 0) + 1;
+            return acc;
+        }, {} as Record<string, number>);
+        
+        const totalEvents = timeline.length;
+        const duration = timeline[timeline.length - 1]?.end || 0;
+        const minutes = Math.floor(duration / 60);
+        const seconds = duration % 60;
+        
+        let summary = `**Analyse de la Timeline (Durée: ${minutes}:${seconds.toString().padStart(2, '0')})**\n\n`;
+        summary += `**Total des événements détectés:** ${totalEvents}\n\n`;
+        summary += `**Détail des événements par type:**\n`;
+        
+        Object.entries(eventCounts).forEach(([event, count]) => {
+            const percentage = ((count / totalEvents) * 100).toFixed(1);
+            summary += `- **${event}:** ${count} (${percentage}%)\n`;
+        });
+        
+        summary += `\n**Chronologie des événements:**\n`;
+        timeline.forEach((event, index) => {
+            const time = `${Math.floor(event.start / 60)}:${(event.start % 60).toString().padStart(2, '0')}`;
+            summary += `${index + 1}. **${time}** - ${event.label} (confiance: ${(event.confidence * 100).toFixed(1)}%)\n`;
+        });
+        
+        return summary;
+    };
+
     const handleStart = async () => {
         if (!selectedVideoId) {
             setErrorMessage("Sélectionnez d'abord une vidéo.");
