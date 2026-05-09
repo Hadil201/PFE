@@ -119,10 +119,10 @@ export default function Admin() {
                 <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 2 }}>
                     <Box>
                         <Typography variant="h4" sx={{ color: "#f8fafc", fontWeight: 800 }}>
-                            Admin Console
+                            Console d'administration
                         </Typography>
                         <Typography sx={{ color: "#94a3b8", mt: 1 }}>
-                            Manage users and quota settings from a single administrator dashboard.
+                            Gérez les utilisateurs et les paramètres de quota à partir d'un tableau d'administration unique.
                         </Typography>
                     </Box>
                     <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
@@ -132,14 +132,14 @@ export default function Admin() {
                             sx={{ borderColor: "rgba(148, 163, 184, 0.24)", color: "#e2e8f0" }}
                             onClick={exportCsv}
                         >
-                            Export CSV
+                            Exporter CSV
                         </Button>
                         <Button
                             variant="contained"
                             startIcon={<Plus size={16} />}
                             sx={{ background: "#22c55e", color: "#020617", fontWeight: 700, '&:hover': { background: '#16a34a' } }}
                         >
-                            Add User
+                            Ajouter un utilisateur
                         </Button>
                     </Box>
                 </Box>
@@ -149,10 +149,10 @@ export default function Admin() {
                         <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 2, mb: 3 }}>
                             <Box>
                                 <Typography variant="h6" sx={{ color: "#f8fafc", fontWeight: 700 }}>
-                                    User Management
+                                    Gestion des utilisateurs
                                 </Typography>
                                 <Typography sx={{ color: "#94a3b8" }}>
-                                    Review account details, status, and access controls.
+                                    Consultez les détails des comptes, le statut et les contrôles d'accès.
                                 </Typography>
                             </Box>
                         </Box>
@@ -162,16 +162,16 @@ export default function Admin() {
                                 <TableHead>
                                     <TableRow>
                                         <TableCell sx={{ color: "#94a3b8", fontWeight: 700, borderBottom: "1px solid rgba(148, 163, 184, 0.16)" }}>
-                                            USERNAME
+                                            NOM D'UTILISATEUR
                                         </TableCell>
                                         <TableCell sx={{ color: "#94a3b8", fontWeight: 700, borderBottom: "1px solid rgba(148, 163, 184, 0.16)" }}>
                                             EMAIL
                                         </TableCell>
                                         <TableCell sx={{ color: "#94a3b8", fontWeight: 700, borderBottom: "1px solid rgba(148, 163, 184, 0.16)" }}>
-                                            ROLE
+                                            RÔLE
                                         </TableCell>
                                         <TableCell sx={{ color: "#94a3b8", fontWeight: 700, borderBottom: "1px solid rgba(148, 163, 184, 0.16)" }}>
-                                            STATUS
+                                            STATUT
                                         </TableCell>
                                         <TableCell align="right" sx={{ color: "#94a3b8", fontWeight: 700, borderBottom: "1px solid rgba(148, 163, 184, 0.16)" }}>
                                             ACTIONS
@@ -200,7 +200,7 @@ export default function Admin() {
                                             </TableCell>
                                             <TableCell sx={{ borderBottom: "1px solid rgba(148, 163, 184, 0.08)" }}>
                                                 <Chip
-                                                    label={user.blocked ? "Blocked" : "Active"}
+                                                    label={user.blocked ? "Bloqué" : "Actif"}
                                                     sx={{
                                                         background: user.blocked ? "rgba(239, 68, 68, 0.12)" : "rgba(34, 197, 94, 0.12)",
                                                         color: user.blocked ? "#f87171" : "#22c55e",
@@ -247,10 +247,10 @@ export default function Admin() {
                         <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 2, mb: 3 }}>
                             <Box>
                                 <Typography variant="h6" sx={{ color: "#f8fafc", fontWeight: 700 }}>
-                                    Quota Configuration
+                                    Configuration des quotas
                                 </Typography>
                                 <Typography sx={{ color: "#94a3b8" }}>
-                                    Apply global quotas for all active users.
+                                    Appliquez des quotas globaux pour tous les utilisateurs actifs.
                                 </Typography>
                             </Box>
                             <Chip label="Global" sx={{ background: "rgba(59, 130, 246, 0.12)", color: "#60a5fa", fontWeight: 700 }} />
@@ -258,21 +258,21 @@ export default function Admin() {
 
                         <Box sx={{ display: "grid", gap: 3 }}>
                             <TextField
-                                label="Daily Limit (Hours)"
+                                label="Limite quotidienne (Heures)"
                                 type="number"
                                 value={globalQuotaValues.dailyLimit}
                                 onChange={(e) => setGlobalQuotaValues((prev) => ({ ...prev, dailyLimit: Number(e.target.value) }))}
                                 InputLabelProps={{ shrink: true }}
                             />
                             <TextField
-                                label="Weekly Limit (GB)"
+                                label="Limite hebdomadaire (GB)"
                                 type="number"
                                 value={globalQuotaValues.weeklyLimit}
                                 onChange={(e) => setGlobalQuotaValues((prev) => ({ ...prev, weeklyLimit: Number(e.target.value) }))}
                                 InputLabelProps={{ shrink: true }}
                             />
                             <TextField
-                                label="Simultaneous Streams"
+                                label="Flux simultanés"
                                 type="number"
                                 value={globalQuotaValues.simultaneousStreams}
                                 onChange={(e) => setGlobalQuotaValues((prev) => ({ ...prev, simultaneousStreams: Number(e.target.value) }))}
@@ -286,7 +286,7 @@ export default function Admin() {
                                 sx={{ borderColor: "rgba(148, 163, 184, 0.24)", color: "#e2e8f0" }}
                                 onClick={handleRestoreDefaults}
                             >
-                                Restore Defaults
+                                Restaurer les valeurs par défaut
                             </Button>
                             <Button
                                 variant="contained"
@@ -294,30 +294,30 @@ export default function Admin() {
                                 onClick={handleApplyGlobalQuotas}
                                 disabled={isApplyingGlobal}
                             >
-                                Apply Global Quotas
+                                Appliquer les quotas globaux
                             </Button>
                         </Box>
                     </CardContent>
                 </Card>
 
                 <Dialog open={quotaDialog.open} onClose={() => setQuotaDialog({ open: false })}>
-                    <DialogTitle>Manage Quota for {quotaDialog.user?.name}</DialogTitle>
+                    <DialogTitle>Gérer le quota pour {quotaDialog.user?.name}</DialogTitle>
                     <DialogContent>
                         <Box sx={{ display: "grid", gap: 2, mt: 1 }}>
                             <TextField
-                                label="Daily Limit"
+                                label="Limite quotidienne"
                                 type="number"
                                 value={quotaValues.dailyLimit}
                                 onChange={(e) => setQuotaValues((prev) => ({ ...prev, dailyLimit: Number(e.target.value) }))}
                             />
                             <TextField
-                                label="Weekly Limit"
+                                label="Limite hebdomadaire"
                                 type="number"
                                 value={quotaValues.weeklyLimit}
                                 onChange={(e) => setQuotaValues((prev) => ({ ...prev, weeklyLimit: Number(e.target.value) }))}
                             />
                             <TextField
-                                label="Monthly Limit"
+                                label="Limite mensuelle"
                                 type="number"
                                 value={quotaValues.monthlyLimit}
                                 onChange={(e) => setQuotaValues((prev) => ({ ...prev, monthlyLimit: Number(e.target.value) }))}
@@ -325,9 +325,9 @@ export default function Admin() {
                         </Box>
                     </DialogContent>
                     <DialogActions>
-                        <Button onClick={() => setQuotaDialog({ open: false })}>Cancel</Button>
+                        <Button onClick={() => setQuotaDialog({ open: false })}>Annuler</Button>
                         <Button onClick={() => void handleSaveQuota()} disabled={isSavingQuota}>
-                            Save
+                            Enregistrer
                         </Button>
                     </DialogActions>
                 </Dialog>

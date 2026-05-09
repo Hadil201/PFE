@@ -2,9 +2,9 @@ import { Box, Button, Checkbox, FormControlLabel, Paper, Stack, Typography } fro
 import { GoogleLogin, googleLogout } from "@react-oauth/google";
 import type { CredentialResponse } from "@react-oauth/google";
 import { jwtDecode } from "jwt-decode";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { setSession } from "../services/authStorage";
+import { setSession, getUser } from "../services/authStorage";
 
 interface GoogleProfile {
     email?: string;
@@ -18,11 +18,28 @@ const Login = () => {
     const [error, setError] = useState("");
     const [adminMode, setAdminMode] = useState(false);
 
+    useEffect(() => {
+        // Initialize credentials from existing session if any
+        const existingUser = getUser();
+        if (existingUser && existingUser.name) {
+            setCredentials({
+                email: existingUser.email,
+                name: existingUser.name,
+                picture: existingUser.picture
+            });
+        }
+    }, []);
+
     const handleGoogleLogin = (credentialResponse: CredentialResponse) => {
         if (!credentialResponse.credential) {
             return;
         }
+
+        console.log(credentialResponse.credential);
+        
         const profile = jwtDecode<GoogleProfile>(credentialResponse.credential);
+        console.log(profile);
+        
         if (!profile.email || !profile.name) {
             setError("Google profile is missing email or name.");
             return;
@@ -36,7 +53,7 @@ const Login = () => {
             email: profile.email,
             name: profile.name,
             picture: profile.picture,
-            role: role as const,
+            role: role as "admin" | "user",
             blocked: false,
         };
 

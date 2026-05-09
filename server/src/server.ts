@@ -3,6 +3,7 @@ import app from "./app";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import { createInferenceSocketHandler } from "./sockets/inference.socket";
+import { connect } from "./database/connection";
 
 const PORT = Number(process.env.PORT ?? 5000);
 const httpServer = createServer(app);
@@ -21,6 +22,15 @@ io.on("connection", (socket) => {
         console.log(`Socket disconnected: ${socket.id}`);
     });
 });
+
+connect(process.env.MONGODB_URI || "mongodb+srv://hadilyakoubi201_db_user:91TFMKK92DXkOo7H@cluster0.rdcmw0x.mongodb.net/?appName=Cluster0")
+    .then(() => {
+        console.log("Database connected");
+    })
+    .catch((err) => {
+        console.error("Database connection error:", err);
+        process.exit(1);
+    });
 
 httpServer.listen(PORT, () => {
     console.log(`🚀 Server running on http://localhost:${PORT}`);

@@ -512,13 +512,22 @@ export default function VideoAnalysis() {
                                 // Could seek video to event.start time
                             }}
                         />
-                        {summary && (
-                            <Box sx={{ mt: 2 }}>
-                                <Typography variant="h6" gutterBottom>
-                                    Generated Summary
+                        {inferenceType === "summarization" && (
+                            <Box sx={{ mt: 3, p: 2, bgcolor: "rgba(255,255,255,0.05)", borderRadius: 2 }}>
+                                <Typography variant="h6" sx={{ mb: 2, color: "#f8fafc" }}>
+                                    Résumé détaillé de l'analyse
                                 </Typography>
-                                <Typography variant="body1">
-                                    {summary}
+                                <Typography 
+                                    variant="body1" 
+                                    component="pre" 
+                                    sx={{ 
+                                        whiteSpace: "pre-wrap", 
+                                        color: "#cbd5e1",
+                                        fontSize: "14px",
+                                        lineHeight: 1.6
+                                    }}
+                                >
+                                    {generateTimelineSummary()}
                                 </Typography>
                             </Box>
                         )}
