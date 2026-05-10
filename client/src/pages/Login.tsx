@@ -4,7 +4,7 @@ import type { CredentialResponse } from "@react-oauth/google";
 import { jwtDecode } from "jwt-decode";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { setSession, getUser } from "../services/authStorage";
+import { setSession, getUser, clearSession } from "../services/authStorage";
 
 interface GoogleProfile {
     email?: string;
@@ -17,18 +17,27 @@ const Login = () => {
     const [credentials, setCredentials] = useState<GoogleProfile>({});
     const [error, setError] = useState("");
     const [adminMode, setAdminMode] = useState(false);
+    const [isInitialized, setIsInitialized] = useState(false);
 
     useEffect(() => {
-        // Initialize credentials from existing session if any
-        const existingUser = getUser();
-        if (existingUser && existingUser.name) {
-            setCredentials({
-                email: existingUser.email,
-                name: existingUser.name,
-                picture: existingUser.picture
-            });
+        // Only check session on component mount, not on every render
+        if (!isInitialized) {
+            const existingUser = getUser();
+            if (existingUser && existingUser.name) {
+                setCredentials({
+                    email: existingUser.email,
+                    name: existingUser.name,
+                    picture: existingUser.picture
+                });
+                
+                // Only redirect if we're not already on the login page
+                if (window.location.pathname === "/login") {
+                    navigate("/", { replace: true });
+                }
+            }
+            setIsInitialized(true);
         }
-    }, []);
+    }, []); // Only run once on mount
 
     const handleGoogleLogin = (credentialResponse: CredentialResponse) => {
         if (!credentialResponse.credential) {
@@ -105,8 +114,10 @@ const Login = () => {
                             variant="outlined"
                             onClick={() => {
                                 googleLogout();
+                                clearSession();
                                 setCredentials({});
                                 setError("");
+                                navigate("/login");
                             }}
                         >
                             Déconnexion

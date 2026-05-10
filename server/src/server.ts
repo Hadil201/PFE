@@ -23,7 +23,7 @@ io.on("connection", (socket) => {
     });
 });
 
-connect(process.env.MONGODB_URI || "mongodb+srv://hadilyakoubi201_db_user:91TFMKK92DXkOo7H@cluster0.rdcmw0x.mongodb.net/?appName=Cluster0")
+connect(process.env.MONGODB_URI || "mongodb://localhost:27017/soccer_analysis")
     .then(() => {
         console.log("Database connected");
     })

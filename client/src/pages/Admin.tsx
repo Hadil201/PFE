@@ -11,6 +11,7 @@ import {
     DialogContent,
     DialogTitle,
     IconButton,
+    MenuItem,
     Table,
     TableBody,
     TableCell,
@@ -22,7 +23,7 @@ import {
 } from "@mui/material";
 import { useEffect, useState } from "react";
 import { Download, Pencil, Plus, Slash, Unlock } from "lucide-react";
-import { blockUser, getAdminUsers, unblockUser, setUserQuota, getAllQuotas } from "../services/api";
+import { blockUser, getAdminUsers, unblockUser, setUserQuota, getAllQuotas, createUser } from "../services/api";
 import type { AppUser } from "../types/auth";
 
 interface Quota {
@@ -43,6 +44,10 @@ export default function Admin() {
     const [globalQuotaValues, setGlobalQuotaValues] = useState({ dailyLimit: 12, weeklyLimit: 500, simultaneousStreams: 5 });
     const [isSavingQuota, setIsSavingQuota] = useState(false);
     const [isApplyingGlobal, setIsApplyingGlobal] = useState(false);
+    const [showAddUserForm, setShowAddUserForm] = useState(false);
+    const [newUser, setNewUser] = useState({ name: "", email: "", role: "user" });
+    const [isAddingUser, setIsAddingUser] = useState(false);
+    const [addUserError, setAddUserError] = useState("");
 
     const loadAdminData = async () => {
         const [usersData, quotasData] = await Promise.all([getAdminUsers(), getAllQuotas()]);
@@ -109,6 +114,36 @@ export default function Admin() {
         await loadAdminData();
     };
 
+    const handleAddUser = async () => {
+        if (!newUser.name || !newUser.email) {
+            setAddUserError("Le nom et l'email sont requis");
+            return;
+        }
+
+        setIsAddingUser(true);
+        setAddUserError("");
+
+        try {
+            await createUser({
+                name: newUser.name,
+                email: newUser.email,
+                role: newUser.role as "admin" | "user"
+            });
+
+            // Refresh the users list
+            await loadAdminData();
+
+            // Reset form and close dialog
+            setShowAddUserForm(false);
+            setNewUser({ name: "", email: "", role: "user" });
+            setAddUserError("");
+        } catch (error: any) {
+            setAddUserError(error?.response?.data?.message || "Erreur lors de l'ajout de l'utilisateur");
+        } finally {
+            setIsAddingUser(false);
+        }
+    };
+
     const handleRestoreDefaults = () => {
         setGlobalQuotaValues({ dailyLimit: 12, weeklyLimit: 500, simultaneousStreams: 5 });
     };
@@ -138,6 +173,7 @@ export default function Admin() {
                             variant="contained"
                             startIcon={<Plus size={16} />}
                             sx={{ background: "#22c55e", color: "#020617", fontWeight: 700, '&:hover': { background: '#16a34a' } }}
+                            onClick={() => setShowAddUserForm(true)}
                         >
                             Ajouter un utilisateur
                         </Button>
@@ -300,34 +336,50 @@ export default function Admin() {
                     </CardContent>
                 </Card>
 
-                <Dialog open={quotaDialog.open} onClose={() => setQuotaDialog({ open: false })}>
-                    <DialogTitle>Gérer le quota pour {quotaDialog.user?.name}</DialogTitle>
+                <Dialog open={showAddUserForm} onClose={() => setShowAddUserForm(false)} maxWidth="md">
+                    <DialogTitle>Ajouter un nouvel utilisateur</DialogTitle>
                     <DialogContent>
                         <Box sx={{ display: "grid", gap: 2, mt: 1 }}>
                             <TextField
-                                label="Limite quotidienne"
-                                type="number"
-                                value={quotaValues.dailyLimit}
-                                onChange={(e) => setQuotaValues((prev) => ({ ...prev, dailyLimit: Number(e.target.value) }))}
+                                label="NOM D'UTILISATEUR"
+                                value={newUser.name}
+                                onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
+                                fullWidth
+                                required
                             />
                             <TextField
-                                label="Limite hebdomadaire"
-                                type="number"
-                                value={quotaValues.weeklyLimit}
-                                onChange={(e) => setQuotaValues((prev) => ({ ...prev, weeklyLimit: Number(e.target.value) }))}
+                                label="EMAIL"
+                                type="email"
+                                value={newUser.email}
+                                onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                                fullWidth
+                                required
                             />
                             <TextField
-                                label="Limite mensuelle"
-                                type="number"
-                                value={quotaValues.monthlyLimit}
-                                onChange={(e) => setQuotaValues((prev) => ({ ...prev, monthlyLimit: Number(e.target.value) }))}
-                            />
+                                label="RÔLE"
+                                select
+                                value={newUser.role}
+                                onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
+                                fullWidth
+                            >
+                                <MenuItem value="user">Utilisateur</MenuItem>
+                                <MenuItem value="admin">Administrateur</MenuItem>
+                            </TextField>
+                            {addUserError && (
+                                <Typography color="error" variant="body2">
+                                    {addUserError}
+                                </Typography>
+                            )}
                         </Box>
                     </DialogContent>
                     <DialogActions>
-                        <Button onClick={() => setQuotaDialog({ open: false })}>Annuler</Button>
-                        <Button onClick={() => void handleSaveQuota()} disabled={isSavingQuota}>
-                            Enregistrer
+                        <Button onClick={() => setShowAddUserForm(false)}>Annuler</Button>
+                        <Button 
+                            onClick={handleAddUser}
+                            variant="contained"
+                            disabled={isAddingUser}
+                        >
+                            {isAddingUser ? "Ajout en cours..." : "Ajouter"}
                         </Button>
                     </DialogActions>
                 </Dialog>

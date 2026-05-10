@@ -117,4 +117,13 @@ export const getAllQuotas = async () => {
     return res.data;
 };
 
+export const createUser = async (payload: {
+    name: string;
+    email: string;
+    role: "admin" | "user";
+}) => {
+    const res = await api.post("/auth/users", payload);
+    return res.data;
+};
+
 export default api;
