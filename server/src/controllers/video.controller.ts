@@ -1,13 +1,18 @@
-import { Request, Response } from "express";
+import fs from "fs";
+import { NextFunction, Request, Response } from "express";
+import { Types } from "mongoose";
 import { Server } from "socket.io";
 import { AuthenticatedRequest } from "../middlewares/auth";
 import { youtubeService } from "../services/youtube.service";
-import { videoProcessingService } from "../services/videoProcessing.service";
-import { mlInferenceService } from "../services/mlInference.service";
 import { googleDriveService } from "../services/googleDrive.service";
-
-type VideoSource = "upload" | "youtube" | "stream";
-type VideoStatus = "ready" | "processing" | "done";
+import { Video, type VideoRecord, type VideoSource, type VideoStatus } from "../models/Video";
+import { User } from "../models/User";
+import {
+    consumeInferenceQuota,
+    getAllQuotas as getStoredQuotas,
+    getOrCreateQuota,
+    setUserQuota as updateStoredUserQuota,
+} from "../auth/auth.store";
 
 interface VideoEntity {
     _id: string;
@@ -16,6 +21,7 @@ interface VideoEntity {
     url: string;
     status: VideoStatus;
     createdAt: string;
+    thumbnail?: string;
     startTime?: number;
     endTime?: number;
 }
@@ -26,15 +32,6 @@ export interface ActionEvent {
     start: number;
     end: number;
     confidence: number;
-}
-
-interface Quota {
-    dailyLimit: number;
-    weeklyLimit: number;
-    monthlyLimit: number;
-    dailyUsed: number;
-    weeklyUsed: number;
-    monthlyUsed: number;
 }
 
 const ACTION_CLASSES = [
@@ -62,8 +59,6 @@ const SUMMARIZATION_MODELS = [
     "summary-v2",
 ];
 
-let videos: VideoEntity[] = [];
-const quotaByEmail = new Map<string, Quota>();
 const activeStreams = new Map<string, NodeJS.Timeout>();
 let ioRef: Server | null = null;
 
@@ -71,105 +66,112 @@ export const initRealtime = (io: Server) => {
     ioRef = io;
 };
 
-const getOrCreateQuota = (email: string): Quota => {
-    const existing = quotaByEmail.get(email);
-    if (existing) {
-        return existing;
+const parseOptionalNumber = (value: unknown): number | undefined => {
+    if (value === undefined || value === null || value === "") {
+        return undefined;
     }
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
+};
 
-    const quota: Quota = {
-        dailyLimit: Number(process.env.DAILY_QUOTA ?? 10),
-        weeklyLimit: Number(process.env.WEEKLY_QUOTA ?? 40),
-        monthlyLimit: Number(process.env.MONTHLY_QUOTA ?? 120),
-        dailyUsed: 0,
-        weeklyUsed: 0,
-        monthlyUsed: 0,
+const serializeVideo = (video: VideoRecord): VideoEntity => {
+    const result: VideoEntity = {
+        _id: String(video._id),
+        title: video.title,
+        source: video.source,
+        url: video.url,
+        status: video.status,
+        createdAt: video.createdAt?.toISOString() ?? new Date().toISOString(),
     };
-    quotaByEmail.set(email, quota);
-    return quota;
-};
 
-const consumeInferenceQuota = (email: string): { ok: boolean; message?: string; quota: Quota } => {
-    const quota = getOrCreateQuota(email);
-    if (
-        quota.dailyUsed >= quota.dailyLimit ||
-        quota.weeklyUsed >= quota.weeklyLimit ||
-        quota.monthlyUsed >= quota.monthlyLimit
-    ) {
-        return { ok: false, message: "Quota exceeded for inference requests", quota };
+    if (video.thumbnail) {
+        result.thumbnail = video.thumbnail;
     }
-    quota.dailyUsed += 1;
-    quota.weeklyUsed += 1;
-    quota.monthlyUsed += 1;
-    return { ok: true, quota };
+    if (video.startTime !== undefined) {
+        result.startTime = video.startTime;
+    }
+    if (video.endTime !== undefined) {
+        result.endTime = video.endTime;
+    }
+
+    return result;
 };
 
-export const getVideos = (_req: Request, res: Response) => {
-    res.json(videos);
-};
-
-export const uploadVideo = async (req: AuthenticatedRequest, res: Response) => {
+export const getVideos = async (_req: Request, res: Response, next: NextFunction) => {
     try {
-        if (!req.file) {
-            res.status(400).json({ message: "No video file uploaded" });
+        const videos = await Video.find({}).sort({ createdAt: -1 }).exec();
+        res.json(videos.map(serializeVideo));
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const uploadVideo = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const bodyUrl = typeof req.body.url === "string" ? req.body.url.trim() : "";
+        if (!req.file && !bodyUrl) {
+            res.status(400).json({ message: "No video file or URL provided" });
             return;
         }
 
-        const title = String(req.body.title ?? req.file.originalname);
-        const startTime = Number(req.body.startTime ?? 0);
-        const endTime = Number(req.body.endTime ?? 0);
+        const title = String(req.body.title ?? req.file?.originalname ?? bodyUrl).trim();
+        const startTime = parseOptionalNumber(req.body.startTime);
+        const endTime = parseOptionalNumber(req.body.endTime);
+        let url = req.file?.path ?? bodyUrl;
+        const metadata: Record<string, unknown> = {};
 
-        // Store video metadata
-        const video: VideoEntity = {
-            _id: Date.now().toString(),
-            title,
-            source: "upload",
-            url: req.file.path, // Local file path
-            status: "ready",
-            createdAt: new Date().toISOString(),
-            startTime,
-            endTime,
-        };
-
-        videos.push(video);
-
-        // Optionally upload to Google Drive for storage
-        if (process.env.GOOGLE_DRIVE_FOLDER_ID) {
+        if (process.env.GOOGLE_DRIVE_FOLDER_ID && req.file) {
             try {
-                const fs = require('fs');
                 const fileBuffer = fs.readFileSync(req.file.path);
                 const driveFile = await googleDriveService.uploadFile(
                     req.file.originalname,
                     req.file.mimetype,
                     fileBuffer
                 );
-                
-                // Update video with Google Drive URL
-                video.url = driveFile.webContentLink;
-                console.log(`Video uploaded to Google Drive: ${driveFile.id}`);
+
+                if (driveFile.webContentLink) {
+                    url = driveFile.webContentLink;
+                }
+                metadata.googleDriveFileId = driveFile.id;
             } catch (driveError) {
-                console.error('Failed to upload to Google Drive:', driveError);
-                // Continue with local storage even if Google Drive fails
+                console.error("Failed to upload to Google Drive:", driveError);
             }
         }
 
-        res.json(video);
+        const videoInput: Partial<VideoRecord> = {
+            title,
+            source: "upload",
+            url,
+            status: "ready",
+            metadata,
+        };
+
+        if (req.appUser?.email) {
+            videoInput.ownerEmail = req.appUser.email.toLowerCase();
+        }
+        if (startTime !== undefined) {
+            videoInput.startTime = startTime;
+        }
+        if (endTime !== undefined) {
+            videoInput.endTime = endTime;
+        }
+
+        const video = await Video.create(videoInput);
+        res.status(201).json(serializeVideo(video));
     } catch (error) {
-        console.error('Error uploading video:', error);
-        res.status(500).json({ message: "Failed to upload video" });
+        next(error);
     }
 };
 
-export const addYoutube = async (req: AuthenticatedRequest, res: Response) => {
+export const addYoutube = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-        const { url } = req.body;
-        
+        const { url } = req.body as { url?: string };
+
         if (!url) {
             res.status(400).json({ message: "YouTube URL is required" });
             return;
         }
 
-        // Validate YouTube URL and get video info
         const isAvailable = await youtubeService.isVideoAvailable(url);
         if (!isAvailable) {
             res.status(400).json({ message: "YouTube video is not available or invalid URL" });
@@ -177,41 +179,69 @@ export const addYoutube = async (req: AuthenticatedRequest, res: Response) => {
         }
 
         const videoInfo = await youtubeService.getVideoInfo(url);
-
-        const video: VideoEntity = {
-            _id: Date.now().toString(),
+        const videoInput: Partial<VideoRecord> = {
             title: videoInfo.title,
             source: "youtube",
-            url: url,
+            url,
             status: "ready",
-            createdAt: new Date().toISOString(),
+            metadata: { videoInfo },
         };
+        if (req.appUser?.email) {
+            videoInput.ownerEmail = req.appUser.email.toLowerCase();
+        }
 
-        videos.push(video);
-        res.json({ ...video, videoInfo });
+        const video = await Video.create(videoInput);
+
+        res.status(201).json({ ...serializeVideo(video), videoInfo });
     } catch (error) {
-        console.error('Error adding YouTube video:', error);
-        res.status(500).json({ message: "Failed to add YouTube video" });
+        next(error);
     }
 };
 
-export const addStream = (req: Request, res: Response) => {
-    const video: VideoEntity = {
-        _id: Date.now().toString(),
-        title: req.body.url,
-        source: "stream",
-        url: req.body.url,
-        status: "processing",
-        createdAt: new Date().toISOString(),
-    };
+export const addStream = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const { url } = req.body as { url?: string };
+        if (!url) {
+            res.status(400).json({ message: "Stream URL is required" });
+            return;
+        }
 
-    videos.push(video);
-    res.json(video);
+        const videoInput: Partial<VideoRecord> = {
+            title: url,
+            source: "stream",
+            url,
+            status: "processing",
+        };
+        if (req.appUser?.email) {
+            videoInput.ownerEmail = req.appUser.email.toLowerCase();
+        }
+
+        const video = await Video.create(videoInput);
+
+        res.status(201).json(serializeVideo(video));
+    } catch (error) {
+        next(error);
+    }
 };
 
-export const deleteVideo = (req: Request, res: Response) => {
-    videos = videos.filter(v => v._id !== req.params.id);
-    res.json({ message: "deleted" });
+export const deleteVideo = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const videoId = String(req.params.id ?? "");
+        if (!Types.ObjectId.isValid(videoId)) {
+            res.status(404).json({ message: "Video not found" });
+            return;
+        }
+
+        const result = await Video.deleteOne({ _id: videoId }).exec();
+        if (result.deletedCount === 0) {
+            res.status(404).json({ message: "Video not found" });
+            return;
+        }
+
+        res.json({ message: "deleted" });
+    } catch (error) {
+        next(error);
+    }
 };
 
 export const listActionClasses = (_req: Request, res: Response) => {
@@ -222,138 +252,184 @@ export const listSummarizationModels = (_req: Request, res: Response) => {
     res.json(SUMMARIZATION_MODELS);
 };
 
-export const startInference = (req: AuthenticatedRequest, res: Response) => {
-    const user = req.appUser;
-    if (!user) {
-        res.status(401).json({ message: "Authentication required" });
-        return;
-    }
+export const startInference = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const user = req.appUser;
+        if (!user) {
+            res.status(401).json({ message: "Authentication required" });
+            return;
+        }
 
-    const { videoId, selectedClasses, modelName, chunkDuration, inferenceType } = req.body as {
-        videoId?: string;
-        selectedClasses?: string[];
-        modelName?: string;
-        chunkDuration?: number;
-        inferenceType?: "action-spotting" | "summarization";
-    };
+        const { videoId, selectedClasses, modelName, chunkDuration, inferenceType } = req.body as {
+            videoId?: string;
+            selectedClasses?: string[];
+            modelName?: string;
+            chunkDuration?: number;
+            inferenceType?: "action-spotting" | "summarization";
+        };
 
-    const isActionSpotting = inferenceType !== "summarization";
-    if (!videoId || (isActionSpotting && (!Array.isArray(selectedClasses) || selectedClasses.length === 0))) {
-        res.status(400).json({ message: "videoId and at least one selected class are required for action spotting" });
-        return;
-    }
+        const isActionSpotting = inferenceType !== "summarization";
+        const classes = Array.isArray(selectedClasses) && selectedClasses.length > 0 ? selectedClasses : ACTION_CLASSES;
+        if (!videoId || !Types.ObjectId.isValid(videoId)) {
+            res.status(400).json({ message: "A valid videoId is required" });
+            return;
+        }
 
-    const quotaResult = consumeInferenceQuota(user.email.toLowerCase());
-    if (!quotaResult.ok) {
-        res.status(429).json({ message: quotaResult.message, quota: quotaResult.quota });
-        return;
-    }
+        const quotaResult = await consumeInferenceQuota(user.email.toLowerCase());
+        if (!quotaResult.ok) {
+            res.status(429).json({ message: quotaResult.message, quota: quotaResult.quota });
+            return;
+        }
 
-    const video = videos.find((item) => item._id === videoId);
-    if (!video) {
-        res.status(404).json({ message: "Video not found" });
-        return;
-    }
-    video.status = "processing";
+        const video = await Video.findByIdAndUpdate(
+            videoId,
+            { $set: { status: "processing" } },
+            { new: true, runValidators: true }
+        ).exec();
 
-    const jobId = `${videoId}-${Date.now()}`;
-    const safeChunkDuration = Number(chunkDuration ?? 5);
-    let tick = 0;
-    const maxTicks = 20;
-    const events: ActionEvent[] = [];
+        if (!video) {
+            res.status(404).json({ message: "Video not found" });
+            return;
+        }
 
-    ioRef?.emit("inference:started", {
-        jobId,
-        videoId,
-        modelName: modelName ?? "spotting-v1",
-        chunkDuration: safeChunkDuration,
-    });
+        const jobId = `${videoId}-${Date.now()}`;
+        const safeChunkDuration = Number(chunkDuration ?? 5);
+        let tick = 0;
+        const maxTicks = 20;
+        const events: ActionEvent[] = [];
 
-    const interval = setInterval(() => {
-        tick += 1;
-        const playhead = tick * safeChunkDuration;
+        ioRef?.emit("inference:started", {
+            jobId,
+            videoId,
+            modelName: modelName ?? "spotting-v1",
+            chunkDuration: safeChunkDuration,
+        });
 
-        if (isActionSpotting) {
-            const shouldEmitAction = tick % 2 === 0;
-            if (shouldEmitAction) {
-                const chosen = selectedClasses![Math.floor(Math.random() * selectedClasses!.length)] ?? "action";
-                const event: ActionEvent = {
-                    id: `${jobId}-${tick}`,
-                    label: chosen,
-                    start: Math.max(0, playhead - safeChunkDuration),
-                    end: playhead,
-                    confidence: Number((0.6 + Math.random() * 0.4).toFixed(2)),
-                };
-                events.push(event);
-                ioRef?.emit("inference:event", { jobId, videoId, event });
-            }
-        } else {
-            // For summarization, emit summary at the end
-            if (tick === maxTicks) {
+        const interval = setInterval(() => {
+            tick += 1;
+            const playhead = tick * safeChunkDuration;
+
+            if (isActionSpotting) {
+                const shouldEmitAction = tick % 2 === 0;
+                if (shouldEmitAction) {
+                    const chosen = classes[Math.floor(Math.random() * classes.length)] ?? "action";
+                    const event: ActionEvent = {
+                        id: `${jobId}-${tick}`,
+                        label: chosen,
+                        start: Math.max(0, playhead - safeChunkDuration),
+                        end: playhead,
+                        confidence: Number((0.6 + Math.random() * 0.4).toFixed(2)),
+                    };
+                    events.push(event);
+                    ioRef?.emit("inference:event", { jobId, videoId, event });
+                }
+            } else if (tick === maxTicks) {
                 const summary = "This is a generated summary of the soccer video.";
                 ioRef?.emit("inference:summary", { jobId, videoId, summary });
             }
+
+            ioRef?.emit("inference:playhead", { jobId, videoId, position: playhead });
+
+            if (tick >= maxTicks) {
+                clearInterval(interval);
+                activeStreams.delete(jobId);
+                void Video.findByIdAndUpdate(videoId, {
+                    $set: {
+                        status: "done",
+                        "metadata.lastInference": {
+                            jobId,
+                            modelName,
+                            inferenceType: inferenceType ?? "action-spotting",
+                            events,
+                            completedAt: new Date(),
+                        },
+                    },
+                }).exec();
+                ioRef?.emit("inference:completed", { jobId, videoId, events });
+            }
+        }, 1000);
+
+        activeStreams.set(jobId, interval);
+
+        res.json({
+            jobId,
+            status: "processing",
+            quota: quotaResult.quota,
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getQuotaStatus = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const user = req.appUser;
+        if (!user) {
+            res.status(401).json({ message: "Authentication required" });
+            return;
+        }
+        res.json(await getOrCreateQuota(user.email.toLowerCase()));
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getAdminOverview = async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+        const [usersCount, videosCount, processingVideos] = await Promise.all([
+            User.countDocuments().exec(),
+            Video.countDocuments().exec(),
+            Video.countDocuments({ status: "processing" }).exec(),
+        ]);
+
+        res.json({
+            usersCount,
+            videosCount,
+            activeStreams: activeStreams.size,
+            processingVideos,
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const setUserQuota = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { email } = req.params;
+        const { dailyLimit, weeklyLimit, monthlyLimit } = req.body as {
+            dailyLimit?: number;
+            weeklyLimit?: number;
+            monthlyLimit?: number;
+        };
+
+        const limits: { dailyLimit?: number; weeklyLimit?: number; monthlyLimit?: number } = {};
+        if (dailyLimit !== undefined) {
+            limits.dailyLimit = dailyLimit;
+        }
+        if (weeklyLimit !== undefined) {
+            limits.weeklyLimit = weeklyLimit;
+        }
+        if (monthlyLimit !== undefined) {
+            limits.monthlyLimit = monthlyLimit;
         }
 
-        ioRef?.emit("inference:playhead", { jobId, videoId, position: playhead });
+        const quota = await updateStoredUserQuota(String(email), limits);
 
-        if (tick >= maxTicks) {
-            clearInterval(interval);
-            activeStreams.delete(jobId);
-            video.status = "done";
-            ioRef?.emit("inference:completed", { jobId, videoId, events });
+        if (!quota) {
+            res.status(404).json({ message: "User not found" });
+            return;
         }
-    }, 1000);
 
-    activeStreams.set(jobId, interval);
-
-    res.json({
-        jobId,
-        status: "processing",
-        quota: quotaResult.quota,
-    });
-};
-
-export const getQuotaStatus = (req: AuthenticatedRequest, res: Response) => {
-    const user = req.appUser;
-    if (!user) {
-        res.status(401).json({ message: "Authentication required" });
-        return;
+        res.json(quota);
+    } catch (error) {
+        next(error);
     }
-    res.json(getOrCreateQuota(user.email.toLowerCase()));
 };
 
-export const getAdminOverview = (_req: Request, res: Response) => {
-    const users = Array.from(quotaByEmail.keys());
-    return res.json({
-        usersCount: users.length,
-        videosCount: videos.length,
-        activeStreams: activeStreams.size,
-        processingVideos: videos.filter((v) => v.status === "processing").length,
-    });
-};
-
-export const setUserQuota = (req: Request, res: Response) => {
-    const { email } = req.params;
-    if (typeof email !== 'string') {
-        res.status(400).json({ message: "Invalid email" });
-        return;
+export const getAllQuotas = async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+        res.json(await getStoredQuotas());
+    } catch (error) {
+        next(error);
     }
-    const { dailyLimit, weeklyLimit, monthlyLimit } = req.body as {
-        dailyLimit?: number;
-        weeklyLimit?: number;
-        monthlyLimit?: number;
-    };
-
-    const quota = getOrCreateQuota(email.toLowerCase());
-    if (dailyLimit !== undefined) quota.dailyLimit = dailyLimit;
-    if (weeklyLimit !== undefined) quota.weeklyLimit = weeklyLimit;
-    if (monthlyLimit !== undefined) quota.monthlyLimit = monthlyLimit;
-
-    res.json(quota);
-};
-
-export const getAllQuotas = (_req: Request, res: Response) => {
-    const quotas = Array.from(quotaByEmail.entries()).map(([email, quota]) => ({ email, ...quota }));
-    res.json(quotas);
 };

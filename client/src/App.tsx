@@ -28,7 +28,9 @@ function RequireAuth({ children }: { children: ReactElement }) {
 
 function RequireAdmin({ children }: { children: ReactElement }) {
   const user = getUser();
-  if (!user) {
+  const token = getToken();
+  if (!user || !token) {
+    clearSession();
     return <Navigate to="/login" replace />;
   }
   if (user.role?.toLowerCase() !== "admin") {
@@ -55,8 +57,8 @@ export default function App() {
     <ThemeProvider theme={theme}>
       <BrowserRouter>
         <Routes>
-    -     <Route path="/login" element={<Login />} />
-          <Route path="/" element={<Dashboard />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/" element={<RequireAuth><Dashboard /></RequireAuth>} />
           <Route path="/library" element={<RequireAuth><Library /></RequireAuth>} />
           <Route path="/analysis" element={<RequireAuth><VideoAnalysis /></RequireAuth>} />
           <Route path="/admin" element={<RequireAdmin><Admin /></RequireAdmin>} />

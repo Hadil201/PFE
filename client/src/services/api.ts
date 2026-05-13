@@ -17,7 +17,9 @@ api.interceptors.response.use(
     (error) => {
         if (error.response?.status === 401) {
             clearSession();
-            window.location.href = "/login";
+            if (window.location.pathname !== "/login") {
+                window.location.href = "/login";
+            }
         }
         return Promise.reject(error);
     }
@@ -28,7 +30,24 @@ export const getVideos = async () => {
     return res.data;
 };
 
-export const uploadVideo = async (payload: { title: string; url: string; startTime?: number; endTime?: number }) => {
+export const uploadVideo = async (payload: { title: string; url?: string; file?: File; startTime?: number; endTime?: number }) => {
+    if (payload.file) {
+        const formData = new FormData();
+        formData.append("video", payload.file);
+        formData.append("title", payload.title);
+        if (payload.url) {
+            formData.append("url", payload.url);
+        }
+        if (payload.startTime !== undefined) {
+            formData.append("startTime", String(payload.startTime));
+        }
+        if (payload.endTime !== undefined) {
+            formData.append("endTime", String(payload.endTime));
+        }
+        const res = await api.post("/videos/upload", formData);
+        return res.data;
+    }
+
     const res = await api.post("/videos/upload", payload);
     return res.data;
 };

@@ -298,21 +298,18 @@ export default function Admin() {
                                 type="number"
                                 value={globalQuotaValues.dailyLimit}
                                 onChange={(e) => setGlobalQuotaValues((prev) => ({ ...prev, dailyLimit: Number(e.target.value) }))}
-                                InputLabelProps={{ shrink: true }}
                             />
                             <TextField
                                 label="Limite hebdomadaire (GB)"
                                 type="number"
                                 value={globalQuotaValues.weeklyLimit}
                                 onChange={(e) => setGlobalQuotaValues((prev) => ({ ...prev, weeklyLimit: Number(e.target.value) }))}
-                                InputLabelProps={{ shrink: true }}
                             />
                             <TextField
                                 label="Flux simultanés"
                                 type="number"
                                 value={globalQuotaValues.simultaneousStreams}
                                 onChange={(e) => setGlobalQuotaValues((prev) => ({ ...prev, simultaneousStreams: Number(e.target.value) }))}
-                                InputLabelProps={{ shrink: true }}
                             />
                         </Box>
 
@@ -380,6 +377,44 @@ export default function Admin() {
                             disabled={isAddingUser}
                         >
                             {isAddingUser ? "Ajout en cours..." : "Ajouter"}
+                        </Button>
+                    </DialogActions>
+                </Dialog>
+
+                <Dialog open={quotaDialog.open} onClose={() => setQuotaDialog({ open: false })} maxWidth="sm" fullWidth>
+                    <DialogTitle>Modifier les quotas</DialogTitle>
+                    <DialogContent>
+                        <Box sx={{ display: "grid", gap: 2, mt: 1 }}>
+                            <Typography sx={{ color: "#94a3b8" }}>
+                                {quotaDialog.user?.name} - {quotaDialog.user?.email}
+                            </Typography>
+                            <TextField
+                                label="Limite quotidienne"
+                                type="number"
+                                value={quotaValues.dailyLimit}
+                                onChange={(e) => setQuotaValues((prev) => ({ ...prev, dailyLimit: Number(e.target.value) }))}
+                                fullWidth
+                            />
+                            <TextField
+                                label="Limite hebdomadaire"
+                                type="number"
+                                value={quotaValues.weeklyLimit}
+                                onChange={(e) => setQuotaValues((prev) => ({ ...prev, weeklyLimit: Number(e.target.value) }))}
+                                fullWidth
+                            />
+                            <TextField
+                                label="Limite mensuelle"
+                                type="number"
+                                value={quotaValues.monthlyLimit}
+                                onChange={(e) => setQuotaValues((prev) => ({ ...prev, monthlyLimit: Number(e.target.value) }))}
+                                fullWidth
+                            />
+                        </Box>
+                    </DialogContent>
+                    <DialogActions>
+                        <Button onClick={() => setQuotaDialog({ open: false })}>Annuler</Button>
+                        <Button onClick={() => void handleSaveQuota()} variant="contained" disabled={isSavingQuota}>
+                            {isSavingQuota ? "Enregistrement..." : "Enregistrer"}
                         </Button>
                     </DialogActions>
                 </Dialog>

@@ -247,6 +247,7 @@ export default function VideoAnalysis() {
             } else {
                 const response = await uploadVideo({
                     title: uploadFile?.name || sourceUrl.trim(),
+                    file: uploadFile ?? undefined,
                     url: sourceUrl.trim(),
                     startTime: startTime || undefined,
                     endTime: endTime || undefined,
@@ -433,7 +434,9 @@ export default function VideoAnalysis() {
                                     />
                                 </>
                             )}
-                            
+                            <Button variant="contained" onClick={() => void handleSourceSubmit()}>
+                                Ajouter
+                            </Button>
                                                     </Stack>
 
                         <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
@@ -558,7 +561,7 @@ export default function VideoAnalysis() {
                                         lineHeight: 1.6
                                     }}
                                 >
-                                    {generateTimelineSummary()}
+                                    {summary || generateTimelineSummary()}
                                 </Typography>
                             </Box>
                         )}

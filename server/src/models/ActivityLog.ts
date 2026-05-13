@@ -11,7 +11,7 @@ const ActivityLogSchema = new mongoose.Schema({
       'video_uploaded', 'video_processed', 'video_deleted', 'video_analyzed',
       'analysis_completed', 'analysis_failed', 'login_attempt', 'login_success',
       'login_failed', 'logout', 'session_expired', 'permission_changed',
-      'settings_updated', 'backup_created', 'backup_restored',
+      'settings_updated', 'backup_created', 'backup_restored', 'cleanup_completed',
       'error_occurred', 'warning_generated', 'info_logged'
     ]
   },
@@ -21,8 +21,7 @@ const ActivityLogSchema = new mongoose.Schema({
     required: false
   },
   targetId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    type: mongoose.Schema.Types.Mixed,
     required: false
   },
   targetType: {

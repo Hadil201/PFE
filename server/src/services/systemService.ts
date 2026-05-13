@@ -41,7 +41,7 @@ class SystemService {
   static async getAllSystemSettings() {
     try {
       const settings = await System.find({});
-      return settings.reduce((acc, setting) => {
+      return settings.reduce<Record<string, unknown>>((acc, setting) => {
         acc[setting.name] = setting.value;
         return acc;
       }, {});
@@ -158,8 +158,8 @@ class SystemService {
           processed: processedVideos || 0
         },
         system: {
-          uptime: systemUptime?.value || 'unknown',
-          lastBackup: lastBackup?.value || null
+          uptime: systemUptime || 'unknown',
+          lastBackup: lastBackup || null
         }
       };
     } catch (error) {
@@ -219,7 +219,10 @@ class SystemService {
       
       await System.create({
         name: `backup_${type}_${Date.now()}`,
-        value: backup
+        value: backup,
+        type: 'log',
+        category: 'backup',
+        description: `${type} backup status`
       });
       
       await this.logActivity('backup_created', 'system', undefined, {
