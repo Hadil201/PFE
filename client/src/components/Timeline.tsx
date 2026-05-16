@@ -224,7 +224,7 @@ export default function Timeline({
 
       {/* Stats */}
       {events.length > 0 && (
-        <Box sx={{ mt: 2, p: 1, backgroundColor: '#f9f9f9', borderRadius: 1 }}>
+        <Box sx={{ mt: 2, p: 1, borderRadius: 1 }}>
           <Typography variant="caption" color="text.secondary">
             Total Events: {events.length} |
             Average Confidence: {(events.reduce((sum, e) => sum + e.confidence, 0) / events.length * 100).toFixed(1)}%

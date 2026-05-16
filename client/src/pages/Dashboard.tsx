@@ -33,6 +33,13 @@ export default function Dashboard() {
     const processed = videos.filter((v) => v.status === "done").length;
     const processing = videos.filter((v) => v.status === "processing").length;
     const ready = videos.filter((v) => v.status === "ready").length;
+    const monthlyLimit = quota.monthlyLimit || 0;
+    const monthlyUsed = quota.monthlyUsed || 0;
+    const monthlyRemaining = Math.max(monthlyLimit - monthlyUsed, 0);
+    const monthlyProgress = monthlyLimit > 0 ? Math.min((monthlyUsed / monthlyLimit) * 100, 100) : 0;
+    const dailyUsedMinutes = Math.round(quota.dailyUsed || 0);
+    const dailyLimitMinutes = Math.round(quota.dailyLimit || 0);
+
     return (
         <Layout>
             <Stack spacing={3}>
@@ -114,24 +121,24 @@ export default function Dashboard() {
                                             Total des heures de calcul sur les sessions actives.
                                         </Typography>
                                     </Box>
-                                    <Typography sx={{ color: "#f8fafc", fontWeight: 700, mt: 1 }}>142.5 hrs</Typography>
+                                    <Typography sx={{ color: "#f8fafc", fontWeight: 700, mt: 1 }}>{monthlyUsed} h</Typography>
                                 </Box>
                                 <Box sx={{ display: "grid", gap: 1.5, mb: 3 }}>
                                     <Box sx={{ display: "flex", justifyContent: "space-between", color: "#94a3b8", fontSize: 13 }}>
                                         <span>Quota restant</span>
-                                        <span>57,5 h</span>
+                                        <span>{monthlyRemaining} h</span>
                                     </Box>
-                                    <LinearProgress variant="determinate" value={68} sx={{ height: 10, borderRadius: 5, background: "rgba(148, 163, 184, 0.18)", '& .MuiLinearProgress-bar': { background: '#22c55e' } }} />
+                                    <LinearProgress variant="determinate" value={monthlyProgress} sx={{ height: 10, borderRadius: 5, background: "rgba(148, 163, 184, 0.18)", '& .MuiLinearProgress-bar': { background: '#22c55e' } }} />
                                 </Box>
                                 <Box sx={{ display: "grid", gap: 2 }}>
                                     <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2 }}>
                                         <Box sx={{ p: 2, background: "rgba(255,255,255,0.04)", borderRadius: 2 }}>
                                             <Typography sx={{ color: "#94a3b8", fontSize: 12, textTransform: "uppercase", mb: 1 }}>Utilisé aujourd'hui</Typography>
-                                            <Typography sx={{ color: "#f8fafc", fontWeight: 700 }}>16 h</Typography>
+                                            <Typography sx={{ color: "#f8fafc", fontWeight: 700 }}>{dailyUsedMinutes} / {dailyLimitMinutes} min</Typography>
                                         </Box>
                                         <Box sx={{ p: 2, background: "rgba(255,255,255,0.04)", borderRadius: 2 }}>
                                             <Typography sx={{ color: "#94a3b8", fontSize: 12, textTransform: "uppercase", mb: 1 }}>Limite mensuelle</Typography>
-                                            <Typography sx={{ color: "#f8fafc", fontWeight: 700 }}>200 h</Typography>
+                                            <Typography sx={{ color: "#f8fafc", fontWeight: 700 }}>{monthlyLimit} h</Typography>
                                         </Box>
                                     </Box>
                                 </Box>
