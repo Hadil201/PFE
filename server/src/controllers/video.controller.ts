@@ -1,30 +1,20 @@
 import fs from "fs";
+import path from "path";
 import { NextFunction, Request, Response } from "express";
 import { Types } from "mongoose";
 import { Server } from "socket.io";
 import { AuthenticatedRequest } from "../middlewares/auth";
 import { youtubeService } from "../services/youtube.service";
 import { googleDriveService } from "../services/googleDrive.service";
-import { Video, type VideoRecord, type VideoSource, type VideoStatus } from "../models/Video";
+import { Video, VideoRecord } from "../models/Video";
 import { User } from "../models/User";
 import {
     consumeInferenceQuota,
-    getAllQuotas as getStoredQuotas,
+    getAllQuotas as getAllQuotasFromStore,
     getOrCreateQuota,
-    setUserQuota as updateStoredUserQuota,
+    setUserQuota as setUserQuotaInStore,
 } from "../auth/auth.store";
-
-interface VideoEntity {
-    _id: string;
-    title: string;
-    source: VideoSource;
-    url: string;
-    status: VideoStatus;
-    createdAt: string;
-    thumbnail?: string;
-    startTime?: number;
-    endTime?: number;
-}
+import { mlInferenceService } from "../services/mlInference.service";
 
 export interface ActionEvent {
     id: string;
@@ -32,6 +22,18 @@ export interface ActionEvent {
     start: number;
     end: number;
     confidence: number;
+}
+
+export interface VideoEntity {
+    _id: string;
+    title: string;
+    source: string;
+    url: string;
+    status: string;
+    createdAt: string;
+    thumbnail?: string;
+    startTime?: number;
+    endTime?: number;
 }
 
 const ACTION_CLASSES = [
@@ -117,7 +119,14 @@ export const uploadVideo = async (req: AuthenticatedRequest, res: Response, next
         const title = String(req.body.title ?? req.file?.originalname ?? bodyUrl).trim();
         const startTime = parseOptionalNumber(req.body.startTime);
         const endTime = parseOptionalNumber(req.body.endTime);
-        let url = req.file?.path ?? bodyUrl;
+        let url = bodyUrl;
+
+        if (req.file) {
+            // Convert absolute path to relative path for frontend accessibility
+            const relativePath = path.relative(process.cwd(), req.file.path).replace(/\\/g, "/");
+            url = relativePath;
+        }
+
         const metadata: Record<string, unknown> = {};
 
         if (process.env.GOOGLE_DRIVE_FOLDER_ID && req.file) {
@@ -165,20 +174,42 @@ export const uploadVideo = async (req: AuthenticatedRequest, res: Response, next
 
 export const addYoutube = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-        const { url } = req.body as { url?: string };
+        let { url } = req.body as { url?: string };
+        console.log("Adding YouTube URL:", url);
 
         if (!url) {
+            console.error("YouTube addition failed: URL is missing");
             res.status(400).json({ message: "YouTube URL is required" });
             return;
         }
 
         const isAvailable = await youtubeService.isVideoAvailable(url);
+        console.log("YouTube availability check for", url, ":", isAvailable);
+        
         if (!isAvailable) {
+            console.error("YouTube addition failed: URL not available or invalid:", url);
             res.status(400).json({ message: "YouTube video is not available or invalid URL" });
             return;
         }
 
+        console.log("Fetching YouTube metadata for:", url);
         const videoInfo = await youtubeService.getVideoInfo(url);
+        console.log("YouTube metadata fetched successfully:", videoInfo.title);
+        
+        // Normalize URL to standard format
+        if (videoInfo.videoId) {
+            url = `https://www.youtube.com/watch?v=${videoInfo.videoId}`;
+            console.log("Normalized YouTube URL:", url);
+        }
+
+        // Check if video already exists with this normalized URL
+        const existingVideo = await Video.findOne({ url }).exec();
+        if (existingVideo) {
+            console.log("YouTube video already exists in database:", existingVideo._id);
+            res.status(200).json(serializeVideo(existingVideo));
+            return;
+        }
+
         const videoInput: Partial<VideoRecord> = {
             title: videoInfo.title,
             source: "youtube",
@@ -186,14 +217,18 @@ export const addYoutube = async (req: AuthenticatedRequest, res: Response, next:
             status: "ready",
             metadata: { videoInfo },
         };
+
         if (req.appUser?.email) {
             videoInput.ownerEmail = req.appUser.email.toLowerCase();
         }
 
+        console.log("Creating video record in database...");
         const video = await Video.create(videoInput);
+        console.log("YouTube video added successfully:", video._id);
 
         res.status(201).json({ ...serializeVideo(video), videoInfo });
     } catch (error) {
+        console.error("Error in addYoutube controller:", error);
         next(error);
     }
 };
@@ -219,6 +254,26 @@ export const addStream = async (req: AuthenticatedRequest, res: Response, next: 
         const video = await Video.create(videoInput);
 
         res.status(201).json(serializeVideo(video));
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getVideo = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const videoId = String(req.params.id ?? "");
+        if (!Types.ObjectId.isValid(videoId)) {
+            res.status(404).json({ message: "Video not found" });
+            return;
+        }
+
+        const video = await Video.findById(videoId).exec();
+        if (!video) {
+            res.status(404).json({ message: "Video not found" });
+            return;
+        }
+
+        res.json(serializeVideo(video));
     } catch (error) {
         next(error);
     }
@@ -271,13 +326,16 @@ export const startInference = async (req: AuthenticatedRequest, res: Response, n
         const isActionSpotting = inferenceType !== "summarization";
         const classes = Array.isArray(selectedClasses) && selectedClasses.length > 0 ? selectedClasses : ACTION_CLASSES;
         if (!videoId || !Types.ObjectId.isValid(videoId)) {
-            res.status(400).json({ message: "A valid videoId is required" });
+            res.status(400).json({ message: "Un identifiant vidéo valide est requis pour démarrer l'analyse." });
             return;
         }
 
         const quotaResult = await consumeInferenceQuota(user.email.toLowerCase());
         if (!quotaResult.ok) {
-            res.status(429).json({ message: quotaResult.message, quota: quotaResult.quota });
+            res.status(429).json({ 
+                message: quotaResult.message || "Quota d'analyse épuisé. Veuillez réessayer plus tard.", 
+                quota: quotaResult.quota 
+            });
             return;
         }
 
@@ -288,74 +346,91 @@ export const startInference = async (req: AuthenticatedRequest, res: Response, n
         ).exec();
 
         if (!video) {
-            res.status(404).json({ message: "Video not found" });
+            res.status(404).json({ message: "Vidéo introuvable dans la base de données." });
             return;
         }
 
         const jobId = `${videoId}-${Date.now()}`;
         const safeChunkDuration = Number(chunkDuration ?? 5);
-        let tick = 0;
-        const maxTicks = 20;
-        const events: ActionEvent[] = [];
 
-        ioRef?.emit("inference:started", {
-            jobId,
-            videoId,
-            modelName: modelName ?? "spotting-v1",
-            chunkDuration: safeChunkDuration,
-        });
-
-        const interval = setInterval(() => {
-            tick += 1;
-            const playhead = tick * safeChunkDuration;
-
-            if (isActionSpotting) {
-                const shouldEmitAction = tick % 2 === 0;
-                if (shouldEmitAction) {
-                    const chosen = classes[Math.floor(Math.random() * classes.length)] ?? "action";
-                    const event: ActionEvent = {
-                        id: `${jobId}-${tick}`,
-                        label: chosen,
-                        start: Math.max(0, playhead - safeChunkDuration),
-                        end: playhead,
-                        confidence: Number((0.6 + Math.random() * 0.4).toFixed(2)),
-                    };
-                    events.push(event);
-                    ioRef?.emit("inference:event", { jobId, videoId, event });
-                }
-            } else if (tick === maxTicks) {
-                const summary = "This is a generated summary of the soccer video.";
-                ioRef?.emit("inference:summary", { jobId, videoId, summary });
-            }
-
-            ioRef?.emit("inference:playhead", { jobId, videoId, position: playhead });
-
-            if (tick >= maxTicks) {
-                clearInterval(interval);
-                activeStreams.delete(jobId);
-                void Video.findByIdAndUpdate(videoId, {
-                    $set: {
-                        status: "done",
-                        "metadata.lastInference": {
-                            jobId,
-                            modelName,
-                            inferenceType: inferenceType ?? "action-spotting",
-                            events,
-                            completedAt: new Date(),
-                        },
-                    },
-                }).exec();
-                ioRef?.emit("inference:completed", { jobId, videoId, events });
-            }
-        }, 1000);
-
-        activeStreams.set(jobId, interval);
-
+        // Immediate response to client
         res.json({
             jobId,
             status: "processing",
             quota: quotaResult.quota,
         });
+
+        // Run inference in background
+        (async () => {
+            try {
+                ioRef?.emit("inference:started", { jobId, videoId });
+
+                if (isActionSpotting) {
+                    const result = await mlInferenceService.runActionSpotting(video.url, {
+                        modelType: 'action-spotting',
+                        modelName: modelName ?? "spotting-v1",
+                        selectedClasses: classes,
+                        confidenceThreshold: 0.5,
+                        chunkDuration: safeChunkDuration
+                    });
+                    // Simulate progressive event emission for UI feedback
+                    // We split the results over time to make it look "live"
+                    for (const event of result.events) {
+                        // Artificial delay between events to show progress in UI
+                        await new Promise(resolve => setTimeout(resolve, 800));
+
+                        ioRef?.emit("inference:event", { jobId, videoId, event });
+                        ioRef?.emit("inference:playhead", { jobId, videoId, position: event.end });
+                    }
+                    
+                    await Video.findByIdAndUpdate(videoId, {
+                        $set: {
+                            status: "done",
+                            "metadata.lastInference": {
+                                jobId,
+                                modelName,
+                                inferenceType: "action-spotting",
+                                events: result.events,
+                                completedAt: new Date(),
+                            },
+                        },
+                    }).exec();
+
+                    ioRef?.emit("inference:completed", { jobId, videoId, events: result.events });
+                } else {
+                    const result = await mlInferenceService.runSummarization(video.url, {
+                        modelType: 'summarization',
+                        modelName: modelName ?? "summary-v1",
+                        confidenceThreshold: 0.5,
+                        chunkDuration: safeChunkDuration
+                    });
+
+                    // Summarization takes some "thinking" time
+                    await new Promise(resolve => setTimeout(resolve, 3000));
+
+                    ioRef?.emit("inference:summary", { jobId, videoId, summary: result.summary });
+                    
+                    await Video.findByIdAndUpdate(videoId, {
+                        $set: {
+                            status: "done",
+                            "metadata.lastInference": {
+                                jobId,
+                                modelName,
+                                inferenceType: "summarization",
+                                summary: result.summary,
+                                completedAt: new Date(),
+                            },
+                        },
+                    }).exec();
+
+                    ioRef?.emit("inference:completed", { jobId, videoId, summary: result.summary });
+                }
+            } catch (err) {
+                console.error("Inference background task failed:", err);
+                await Video.findByIdAndUpdate(videoId, { $set: { status: "ready" } }).exec();
+                ioRef?.emit("inference:error", { jobId, videoId, message: "Erreur lors de l'analyse AI." });
+            }
+        })();
     } catch (error) {
         next(error);
     }
@@ -413,7 +488,7 @@ export const setUserQuota = async (req: Request, res: Response, next: NextFuncti
             limits.monthlyLimit = monthlyLimit;
         }
 
-        const quota = await updateStoredUserQuota(String(email), limits);
+        const quota = await setUserQuotaInStore(String(email), limits);
 
         if (!quota) {
             res.status(404).json({ message: "User not found" });
@@ -428,7 +503,7 @@ export const setUserQuota = async (req: Request, res: Response, next: NextFuncti
 
 export const getAllQuotas = async (_req: Request, res: Response, next: NextFunction) => {
     try {
-        res.json(await getStoredQuotas());
+        res.json(await getAllQuotasFromStore());
     } catch (error) {
         next(error);
     }

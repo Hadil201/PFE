@@ -1,6 +1,8 @@
-import React, { useRef, useEffect, useState } from 'react';
-import { Box, Typography, IconButton } from '@mui/material';
-import { PlayArrow, Pause, VolumeUp, VolumeOff } from '@mui/icons-material';
+import React, { useRef, useState, useEffect } from 'react';
+import { Box, Typography, Alert, Stack, Button, IconButton } from '@mui/material';
+import ReactPlayer from 'react-player';
+import Hls from 'hls.js';
+import { OpenInNew, Refresh, Info } from '@mui/icons-material';
 
 interface VideoPlayerProps {
   src: string;
@@ -8,6 +10,7 @@ interface VideoPlayerProps {
   onTimeUpdate?: (currentTime: number) => void;
   onLoadedMetadata?: (duration: number) => void;
   className?: string;
+  autoPlay?: boolean;
 }
 
 export default function VideoPlayer({ 
@@ -15,174 +18,156 @@ export default function VideoPlayer({
   title, 
   onTimeUpdate, 
   onLoadedMetadata,
-  className 
+  className,
+  autoPlay = true
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [isMuted, setIsMuted] = useState(false);
-  const [volume, setVolume] = useState(1);
+  const hlsRef = useRef<Hls | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [showDebug, setShowDebug] = useState(false);
+  const [isYoutube, setIsYoutube] = useState(false);
+
+  const getFullUrl = (url: string) => {
+    if (!url) return "";
+    if (url.startsWith('http')) return url;
+    
+    const cleanPath = url.replace(/\\/g, '/').replace(/^\.\//, '').replace(/^\//, '');
+    const relativePath = cleanPath.startsWith('temp/') ? cleanPath.substring(5) : cleanPath;
+    
+    // Construct full backend URL
+    const backendBase = "http://localhost:5000";
+    return `${backendBase}/temp/${relativePath}`;
+  };
+
+  const fullSrc = getFullUrl(src);
 
   useEffect(() => {
+    const isYT = fullSrc.includes('youtube.com') || fullSrc.includes('youtu.be');
+    setIsYoutube(isYT);
+    setError(null);
+    
+    if (isYT) return; // ReactPlayer handles YouTube
+
     const video = videoRef.current;
     if (!video) return;
 
-    const handleTimeUpdate = () => {
-      const time = video.currentTime;
-      setCurrentTime(time);
-      onTimeUpdate?.(time);
-    };
+    // Clean up previous HLS
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
 
-    const handleLoadedMetadata = () => {
-      const dur = video.duration;
-      setDuration(dur);
-      onLoadedMetadata?.(dur);
-    };
+    const isHls = fullSrc.includes('.m3u8') || fullSrc.includes('.m3u');
 
-    const handlePlay = () => setIsPlaying(true);
-    const handlePause = () => setIsPlaying(false);
+    if (isHls && Hls.isSupported()) {
+      const hls = new Hls();
+      hlsRef.current = hls;
+      hls.loadSource(fullSrc);
+      hls.attachMedia(video);
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        if (autoPlay) video.play().catch(e => console.warn("HLS Play blocked:", e));
+      });
+      hls.on(Hls.Events.ERROR, (_event, data) => {
+        if (data.fatal) setError(`HLS Error: ${data.details}`);
+      });
+    } else {
+      video.src = fullSrc;
+      if (autoPlay) {
+        video.muted = true; // Essential for autoplay
+        video.play().catch(e => console.warn("Native Play blocked:", e));
+      }
+    }
+
+    const handleTimeUpdate = () => onTimeUpdate?.(video.currentTime);
+    const handleLoadedMetadata = () => onLoadedMetadata?.(video.duration);
+    const handleError = () => setError("Impossible de charger le fichier vidéo local.");
 
     video.addEventListener('timeupdate', handleTimeUpdate);
     video.addEventListener('loadedmetadata', handleLoadedMetadata);
-    video.addEventListener('play', handlePlay);
-    video.addEventListener('pause', handlePause);
+    video.addEventListener('error', handleError);
 
     return () => {
       video.removeEventListener('timeupdate', handleTimeUpdate);
       video.removeEventListener('loadedmetadata', handleLoadedMetadata);
-      video.removeEventListener('play', handlePlay);
-      video.removeEventListener('pause', handlePause);
+      video.removeEventListener('error', handleError);
+      if (hlsRef.current) hlsRef.current.destroy();
     };
-  }, [onTimeUpdate, onLoadedMetadata]);
-
-  const togglePlay = () => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    if (isPlaying) {
-      video.pause();
-    } else {
-      video.play();
-    }
-  };
-
-  const toggleMute = () => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    const newMuted = !isMuted;
-    setIsMuted(newMuted);
-    video.muted = newMuted;
-  };
-
-  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newVolume = parseFloat(e.target.value);
-    setVolume(newVolume);
-    if (videoRef.current) {
-      videoRef.current.volume = newVolume;
-    }
-  };
-
-  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newTime = parseFloat(e.target.value);
-    setCurrentTime(newTime);
-    if (videoRef.current) {
-      videoRef.current.currentTime = newTime;
-    }
-  };
-
-  const formatTime = (time: number) => {
-    const minutes = Math.floor(time / 60);
-    const seconds = Math.floor(time % 60);
-    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-  };
+  }, [fullSrc, autoPlay, onTimeUpdate, onLoadedMetadata]);
 
   return (
-    <Box className={`video-player ${className || ''}`}>
-      {title && (
-        <Typography variant="h6" sx={{ mb: 1 }}>
-          {title}
+    <Box className={`video-player ${className || ''}`} sx={{ width: '100%' }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+        <Typography variant="h6" sx={{ color: '#f8fafc', fontSize: '1.1rem' }}>
+          {title || "Lecteur Vidéo"}
         </Typography>
+        <Stack direction="row" spacing={1}>
+          <IconButton size="small" onClick={() => setShowDebug(!showDebug)} sx={{ color: '#64748b' }}>
+            <Info fontSize="small" />
+          </IconButton>
+          <Button 
+            size="small" 
+            startIcon={<OpenInNew fontSize="small" />}
+            onClick={() => window.open(fullSrc, '_blank')}
+            sx={{ color: '#3b82f6', fontSize: '0.7rem' }}
+          >
+            Tester le lien
+          </Button>
+        </Stack>
+      </Stack>
+
+      {showDebug && (
+        <Alert severity="info" sx={{ mb: 1, '& .MuiAlert-message': { wordBreak: 'break-all', fontSize: '0.75rem' } }}>
+          URL: {fullSrc} <br />
+          Type: {isYoutube ? "YouTube" : "Fichier Direct/HLS"}
+        </Alert>
       )}
       
       <Box
         sx={{
           position: 'relative',
-          backgroundColor: 'black',
-          borderRadius: 1,
+          backgroundColor: '#000',
+          borderRadius: 2,
           overflow: 'hidden',
           aspectRatio: '16/9',
+          border: '1px solid rgba(255,255,255,0.1)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
         }}
       >
-        <video
-          ref={videoRef}
-          src={src}
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'contain',
-          }}
-          controls={false}
-        />
-        
-        {/* Custom Controls Overlay */}
-        <Box
-          sx={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            background: 'linear-gradient(to top, rgba(0,0,0,0.7), transparent)',
-            padding: 2,
-            color: 'white',
-          }}
-        >
-          {/* Play/Pause Button */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-            <IconButton onClick={togglePlay} sx={{ color: 'white' }}>
-              {isPlaying ? <Pause /> : <PlayArrow />}
-            </IconButton>
-            
-            {/* Volume Control */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <IconButton onClick={toggleMute} sx={{ color: 'white' }}>
-                {isMuted ? <VolumeOff /> : <VolumeUp />}
-              </IconButton>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.1"
-                value={isMuted ? 0 : volume}
-                onChange={handleVolumeChange}
-                style={{ width: '60px' }}
-              />
-            </Box>
-            
-            {/* Time Display */}
-            <Typography variant="caption" sx={{ ml: 'auto', mr: 1 }}>
-              {formatTime(currentTime)} / {formatTime(duration)}
-            </Typography>
+        {error && (
+          <Box sx={{ position: 'absolute', zIndex: 10, p: 3, textAlign: 'center', width: '100%' }}>
+            <Alert severity="error" variant="filled" sx={{ mb: 2 }}>{error}</Alert>
+            <Button variant="contained" size="small" startIcon={<Refresh />} onClick={() => window.location.reload()}>
+              Actualiser la page
+            </Button>
           </Box>
-          
-          {/* Progress Bar */}
-          <input
-            type="range"
-            min="0"
-            max={duration}
-            step="0.1"
-            value={currentTime}
-            onChange={handleSeek}
-            style={{
-              width: '100%',
-              height: '4px',
-              backgroundColor: 'rgba(255,255,255,0.3)',
-              outline: 'none',
-              cursor: 'pointer',
-            }}
+        )}
+
+        {isYoutube ? (
+          <ReactPlayer
+            key={fullSrc}
+            url={fullSrc}
+            width="100%"
+            height="100%"
+            controls={true}
+            playing={autoPlay}
+            muted={true}
+            playsinline={true}
+            onError={() => setError("Erreur de lecture YouTube.")}
+            onProgress={(state) => onTimeUpdate?.(state.playedSeconds)}
+            onDuration={(duration) => onLoadedMetadata?.(duration)}
           />
-        </Box>
+        ) : (
+          <video
+            ref={videoRef}
+            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+            controls
+            autoPlay={autoPlay}
+            muted={autoPlay}
+            playsInline
+          />
+        )}
       </Box>
     </Box>
   );

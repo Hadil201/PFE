@@ -8,8 +8,12 @@ import {
     ButtonGroup,
     Card,
     CardContent,
+    CircularProgress,
+    FormControl,
+    InputLabel,
     MenuItem,
     Select,
+    type SelectChangeEvent,
     Stack,
     TextField,
     Typography,
@@ -122,6 +126,14 @@ const parseM3U = (m3uContent: string): M3UChannel[] => {
     return channels;
 };
 
+const extractYoutubeId = (url: string): string | null => {
+    if (!url) return null;
+    const regex = /^.*(?:(?:youtu\.be\/|v\/|vi\/|u\/\w\/|embed\/|shorts\/|live\/)|(?:(?:watch)?\?v(?:i)?=|\&v(?:i)?=))([^#\&\?]*).*/;
+    const match = url.match(regex);
+    if (match && match[1] && match[1].length === 11) return match[1];
+    return null;
+};
+
 export default function VideoAnalysis() {
     const [videos, setVideos] = useState<Video[]>([]);
     const [selectedVideoId, setSelectedVideoId] = useState("");
@@ -142,11 +154,89 @@ export default function VideoAnalysis() {
     const [statusMessage, setStatusMessage] = useState("");
     const [errorMessage, setErrorMessage] = useState("");
     const [summary, setSummary] = useState("");
+    const [videoDuration, setVideoDuration] = useState(0);
 
-    const selectedVideo = useMemo(
-        () => videos.find((video) => video._id === selectedVideoId),
-        [selectedVideoId, videos]
-    );
+    const [isProcessing, setIsProcessing] = useState(false);
+
+    // Auto-register or select YouTube video when URL is entered
+    useEffect(() => {
+        const trimmedUrl = sourceUrl.trim();
+        if (!trimmedUrl || isProcessing) return;
+        
+        const ytId = extractYoutubeId(trimmedUrl);
+        
+        if (sourceType === "youtube" && ytId) {
+            const normalizedUrl = `https://www.youtube.com/watch?v=${ytId}`;
+            
+            const timer = setTimeout(async () => {
+                if (isProcessing) return;
+
+                // Check against both raw and normalized URLs in the library
+                const existingVideo = videos.find(v => 
+                    v.url === normalizedUrl || 
+                    extractYoutubeId(v.url) === ytId
+                );
+                
+                if (existingVideo) {
+                    if (selectedVideoId !== existingVideo._id) {
+                        setSelectedVideoId(existingVideo._id);
+                    }
+                } else {
+                    void createVideoFromCurrentSource();
+                }
+            }, 1000);
+
+            return () => clearTimeout(timer);
+        }
+    }, [sourceUrl, sourceType, videos, isProcessing, selectedVideoId]);
+
+    // Auto-play when channel is selected
+    useEffect(() => {
+        if (sourceType === "stream" && selectedChannel) {
+            const channel = channelsList.find(c => c.url === selectedChannel);
+            if (channel) {
+                setActiveChannel(channel);
+                // Also clear messages when switching
+                setStatusMessage("");
+                setErrorMessage("");
+            }
+        }
+    }, [selectedChannel, sourceType, channelsList]);
+
+    useEffect(() => {
+        if (inferenceType === "action-spotting") {
+            if (modelName !== "V1" && modelName !== "V2") {
+                setModelName("V1");
+            }
+        } else {
+            if (modelName !== "S1" && modelName !== "S2") {
+                setModelName("S1");
+            }
+        }
+    }, [inferenceType, modelName]);
+
+    const videoToPlay = useMemo(() => {
+        // 1. Priority: Active M3U stream
+        if (sourceType === "stream" && activeChannel) {
+            return {
+                url: activeChannel.url,
+                title: activeChannel.name,
+                status: "live"
+            };
+        }
+        
+        // 2. Secondary: Currently selected video from list
+        const selected = videos.find((video) => video._id === selectedVideoId);
+        if (selected) return selected;
+
+        // 3. Fallback: Most recent video of the current source type
+        if (sourceType === "upload" || sourceType === "youtube") {
+            const filtered = videos.filter(v => v.source === sourceType);
+            if (filtered.length > 0) return filtered[0];
+        }
+
+        return null;
+    }, [selectedVideoId, videos, activeChannel, sourceType]);
 
     useEffect(() => {
         const fetchChannels = async () => {
@@ -219,57 +309,79 @@ export default function VideoAnalysis() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedVideoId]);
 
-    const createVideoFromCurrentSource = async () => {
+    const createVideoFromCurrentSource = async (fileToUpload?: File) => {
         const selectedM3UChannel = channelsList.find((channel) => channel.url === selectedChannel);
         const streamUrl = selectedM3UChannel?.url || channelsUrl;
         const urlToUse = sourceType === "stream" ? streamUrl : sourceUrl;
+        const file = fileToUpload || uploadFile;
 
         if (!urlToUse?.trim() && sourceType !== "upload") {
             setErrorMessage("Veuillez fournir une URL source ou un chemin de fichier.");
             return null;
         }
 
-        if (sourceType === "upload" && !uploadFile) {
+        if (sourceType === "upload" && !file) {
             setErrorMessage("Veuillez sélectionner un fichier vidéo.");
             return null;
         }
 
+        setIsProcessing(true);
         try {
             let createdVideo: Video | null = null;
+            console.log("Creating video from source:", sourceType, urlToUse);
 
             if (sourceType === "youtube") {
                 const response = await addYoutube(urlToUse.trim());
+                console.log("YouTube addition response:", response);
                 createdVideo = response as Video;
             } else if (sourceType === "stream") {
                 const response = await addStream(urlToUse.trim());
+                console.log("Stream addition response:", response);
                 createdVideo = response as Video;
             } else {
                 const response = await uploadVideo({
-                    title: uploadFile?.name || sourceUrl.trim(),
-                    file: uploadFile ?? undefined,
+                    title: file?.name || sourceUrl.trim(),
+                    file: file ?? undefined,
                     url: sourceUrl.trim(),
                     startTime: startTime || undefined,
                     endTime: endTime || undefined,
                 });
+                console.log("Upload addition response:", response);
                 createdVideo = response as Video;
             }
 
+            console.log("Refreshing data...");
             await refreshData();
+            
             if (createdVideo?._id) {
+                console.log("Setting selected video ID:", createdVideo._id);
                 setSelectedVideoId(createdVideo._id);
+                // Force sourceType if needed to ensure videoToPlay updates correctly
+                if (sourceType === "upload") setSourceType("upload");
+                if (sourceType === "youtube") setSourceType("youtube");
             }
+            
             if (sourceType === "stream") {
                 setActiveChannel(selectedM3UChannel ?? { name: "Flux M3U direct", url: streamUrl.trim() });
             }
 
-            setSourceUrl("");
+            // For YouTube, we keep the URL in the field so the user sees what they put
+            if (sourceType !== "youtube") {
+                setSourceUrl("");
+            }
             setUploadFile(null);
             setStartTime(0);
             setEndTime(0);
             return createdVideo;
         } catch (error: any) {
-            console.error("Impossible de démarrer l'analyse", error);
-            setErrorMessage(error?.response?.data?.message ?? "Impossible d'ajouter la source. Vérifiez l'URL et réessayez.");
+            console.error("Error creating video from source:", error);
+            const serverMsg = error?.response?.data?.message;
+            const fallbackMsg = "Impossible d'ajouter la source. Vérifiez l'URL et réessayez.";
+            setErrorMessage(serverMsg || fallbackMsg);
+            return null;
+        } finally {
+            console.log("Source processing finished.");
+            setIsProcessing(false);
         }
     };
 
@@ -311,10 +423,11 @@ export default function VideoAnalysis() {
         setErrorMessage("");
         setStatusMessage("");
         try {
+            const isStream = sourceType === "stream";
             const hasNewSource =
                 sourceType === "upload"
                     ? Boolean(uploadFile)
-                    : sourceType === "stream"
+                    : isStream
                         ? Boolean(selectedChannel || channelsUrl.trim())
                         : Boolean(sourceUrl.trim());
             let videoIdToAnalyze = selectedVideoId;
@@ -340,9 +453,15 @@ export default function VideoAnalysis() {
                 inferenceType,
             });
             setStatusMessage("L'analyse a démarrée avec succès.");
-        } catch (error) {
+
+            // For streams, ensure the player starts immediately with the correct source
+            if (isStream && !selectedVideoId) {
+                setSelectedVideoId(videoIdToAnalyze);
+            }
+        } catch (error: any) {
             console.error("Impossible de démarrer l'analyse", error);
-            setErrorMessage("Impossible de démarrer l'analyse. Vérifiez votre sélection vidéo et réessayez.");
+            const msg = error?.response?.data?.message || "Impossible de démarrer l'analyse. Vérifiez votre sélection vidéo et réessayez.";
+            setErrorMessage(msg);
         }
     };
 
@@ -353,7 +472,7 @@ export default function VideoAnalysis() {
 
                 <Card className="app-card">
                     <CardContent>
-                        <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
+                        <Stack direction="row" spacing={2} sx={{ mb: 2, alignItems: 'center' }}>
                             <ButtonGroup>
                                 <Button
                                     variant={sourceType === "youtube" ? "contained" : "outlined"}
@@ -375,6 +494,33 @@ export default function VideoAnalysis() {
                                 </Button>
                             </ButtonGroup>
 
+                            <FormControl size="small" sx={{ minWidth: 250 }}>
+                                <InputLabel id="library-select-label">Bibliothèque</InputLabel>
+                                <Select
+                                    labelId="library-select-label"
+                                    label="Bibliothèque"
+                                    value={selectedVideoId}
+                                    onChange={(event: SelectChangeEvent) => {
+                                        const vidId = event.target.value;
+                                        setSelectedVideoId(vidId);
+                                        const vid = videos.find(v => v._id === vidId);
+                                        if (vid) {
+                                            setSourceType(vid.source);
+                                            if (vid.source === "youtube") setSourceUrl(vid.url);
+                                        }
+                                    }}
+                                >
+                                    <MenuItem value=""><em>Choisir une vidéo...</em></MenuItem>
+                                    {videos.map((v) => (
+                                        <MenuItem key={v._id} value={v._id}>
+                                            {v.title}
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                        </Stack>
+
+                        <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
                             {sourceType === "youtube" && (
                                 <TextField
                                     size="small"
@@ -394,20 +540,22 @@ export default function VideoAnalysis() {
                                         value={channelsUrl}
                                         onChange={(event) => setChannelsUrl(event.target.value)}
                                     />
-                                    <Select
-                                        size="small"
-                                        fullWidth
-                                        label="Liste des chaînes"
-                                        value={selectedChannel}
-                                        onChange={(event) => setSelectedChannel(event.target.value)}
-                                    >
-                                        <MenuItem value="">Sélectionner une chaîne</MenuItem>
-                                        {channelsList.map((channel, index) => (
-                                            <MenuItem key={`${channel.url}-${index}`} value={channel.url}>
-                                                {channel.name}
-                                            </MenuItem>
-                                        ))}
-                                    </Select>
+                                    <FormControl size="small" fullWidth>
+                                        <InputLabel id="channel-select-label">Liste des chaînes</InputLabel>
+                                        <Select
+                                            labelId="channel-select-label"
+                                            label="Liste des chaînes"
+                                            value={selectedChannel}
+                                            onChange={(event) => setSelectedChannel(event.target.value)}
+                                        >
+                                            <MenuItem value="">Sélectionner une chaîne</MenuItem>
+                                            {channelsList.map((channel, index) => (
+                                                <MenuItem key={`${channel.url}-${index}`} value={channel.url}>
+                                                    {channel.name}
+                                                </MenuItem>
+                                            ))}
+                                        </Select>
+                                    </FormControl>
                                 </>
                             )}
 
@@ -417,17 +565,21 @@ export default function VideoAnalysis() {
                                     component="label"
                                     sx={{ minWidth: '200px' }}
                                     startIcon={<Upload />}
+                                    disabled={isProcessing}
                                 >
-                                    Télécharger
+                                    {isProcessing ? "Téléchargement..." : "Télécharger"}
                                     <input
                                         type="file"
                                         accept="video/*"
                                         style={{ display: 'none' }}
-                                        onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
+                                        onChange={async (event: React.ChangeEvent<HTMLInputElement>) => {
                                             const file = event.target.files?.[0];
                                             if (file) {
+                                                setIsProcessing(true);
                                                 setUploadFile(file);
                                                 setSourceUrl(file.name);
+                                                await createVideoFromCurrentSource(file);
+                                                setIsProcessing(false);
                                             }
                                         }}
                                     />
@@ -455,36 +607,34 @@ export default function VideoAnalysis() {
                         </Stack>
 
                         <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
-                            <Select
-                                size="small"
-                                value={inferenceType}
-                                onChange={(event) => {
-                                    const newType = event.target.value as "action-spotting" | "summarization";
-                                    setInferenceType(newType);
-                                    setModelName(newType === "action-spotting" ? "V1" : "S1");
-                                }}
-                            >
-                                <MenuItem value="action-spotting">Détection d'action</MenuItem>
-                                <MenuItem value="summarization">Résumé</MenuItem>
-                            </Select>
-                            <Select
-                                size="small"
-                                label="Détection d'action et résumé"
-                                value={modelName}
-                                onChange={(event) => setModelName(event.target.value)}
-                            >
-                                {inferenceType === "action-spotting" ? (
-                                    <>
-                                        <MenuItem value="V1">V1</MenuItem>
-                                        <MenuItem value="V2">V2</MenuItem>
-                                    </>
-                                ) : (
-                                    <>
-                                        <MenuItem value="S1">S1</MenuItem>
-                                        <MenuItem value="S2">S2</MenuItem>
-                                    </>
-                                )}
-                            </Select>
+                            <FormControl size="small" sx={{ minWidth: 200 }}>
+                                <InputLabel id="inference-type-label">Type d'analyse</InputLabel>
+                                <Select
+                                    labelId="inference-type-label"
+                                    label="Type d'analyse"
+                                    value={inferenceType}
+                                    onChange={(event: SelectChangeEvent) => {
+                                        setInferenceType(event.target.value as "action-spotting" | "summarization");
+                                    }}
+                                >
+                                    <MenuItem value="action-spotting">Détection d'action</MenuItem>
+                                    <MenuItem value="summarization">Résumé</MenuItem>
+                                </Select>
+                            </FormControl>
+                            <FormControl size="small" sx={{ minWidth: 150 }}>
+                                <InputLabel id="model-name-label">Modèle</InputLabel>
+                                <Select
+                                    labelId="model-name-label"
+                                    label="Modèle"
+                                    value={modelName}
+                                    onChange={(event: SelectChangeEvent) => setModelName(event.target.value)}
+                                >
+                                    {inferenceType === "action-spotting" && <MenuItem value="V1">V1</MenuItem>}
+                                    {inferenceType === "action-spotting" && <MenuItem value="V2">V2</MenuItem>}
+                                    {inferenceType === "summarization" && <MenuItem value="S1">S1</MenuItem>}
+                                    {inferenceType === "summarization" && <MenuItem value="S2">S2</MenuItem>}
+                                </Select>
+                            </FormControl>
                         </Stack>
 
                     </CardContent>
@@ -506,16 +656,30 @@ export default function VideoAnalysis() {
                 {statusMessage && <Alert severity="success">{statusMessage}</Alert>}
                 {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
 
-                {selectedVideo && (
-                    <Card className="app-card">
+                {isProcessing && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 2, bgcolor: 'rgba(59, 130, 246, 0.1)', borderRadius: 2 }}>
+                        <CircularProgress size={20} />
+                        <Typography>Traitement de la source en cours...</Typography>
+                    </Box>
+                )}
+
+                {videoToPlay ? (
+                    <Card className="app-card" sx={{ border: '2px solid #3b82f6' }}>
                         <CardContent>
                             <VideoPlayer
-                                src={selectedVideo.url}
-                                title={selectedVideo.title}
+                                src={videoToPlay.url}
+                                title={videoToPlay.title}
                                 onTimeUpdate={(time) => setPlayhead(time)}
+                                onLoadedMetadata={(duration) => setVideoDuration(duration)}
                             />
                         </CardContent>
                     </Card>
+                ) : (
+                    <Box sx={{ p: 4, textAlign: 'center', border: '1px dashed #475569', borderRadius: 2 }}>
+                        <Typography color="text.secondary">
+                            Aucune vidéo sélectionnée. Entrez une URL ou téléchargez un fichier pour commencer.
+                        </Typography>
+                    </Box>
                 )}
 
                 <Card className="app-card">
@@ -526,7 +690,7 @@ export default function VideoAnalysis() {
                         <Timeline
                             events={timeline}
                             currentTime={playhead}
-                            duration={1800} // Default 30 minutes, would come from video metadata
+                            duration={videoDuration || 1800} // Use dynamic duration if available
                             onEventClick={(event) => {
                                 console.log('Event clicked:', event);
                                 // Could seek video to event.start time
@@ -551,9 +715,9 @@ export default function VideoAnalysis() {
                                 </Typography>
                             </Box>
                         )}
-                        {selectedVideo && (
+                        {videoToPlay && (
                             <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
-                                Video Status: {selectedVideo.status}
+                                Video Status: {videoToPlay.status}
                             </Typography>
                         )}
                     </CardContent>

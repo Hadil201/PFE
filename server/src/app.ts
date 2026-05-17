@@ -1,9 +1,15 @@
 import express from "express";
 import cors from "cors";
+import path from "path";
 import videoRoutes from "./routes/video.routes";
 import authRoutes from "./auth/auth.controller";
 
 const app = express();
+
+app.use((req, _res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    next();
+});
 
 app.use(
     cors({
@@ -11,6 +17,9 @@ app.use(
     })
 );
 app.use(express.json());
+
+// Serve static files from the temp directory with CORS enabled
+app.use("/temp", cors(), express.static(path.resolve(process.cwd(), "temp")));
 
 app.use("/api/auth", authRoutes);
 app.use("/api/videos", videoRoutes);
