@@ -32,9 +32,9 @@ const numberFromEnv = (key: string, fallback: number) => {
 };
 
 export const defaultQuota = (): UserQuota => ({
-  dailyLimit: numberFromEnv("DAILY_QUOTA", 10),
-  weeklyLimit: numberFromEnv("WEEKLY_QUOTA", 40),
-  monthlyLimit: numberFromEnv("MONTHLY_QUOTA", 120),
+  dailyLimit: numberFromEnv("DAILY_QUOTA", 100),
+  weeklyLimit: numberFromEnv("WEEKLY_QUOTA", 400),
+  monthlyLimit: numberFromEnv("MONTHLY_QUOTA", 1200),
   dailyUsed: 0,
   weeklyUsed: 0,
   monthlyUsed: 0,

@@ -232,6 +232,12 @@ export const consumeInferenceQuota = async (email: string): Promise<{ ok: boolea
     }
 
     const quota = normalizeQuota(user.quota);
+    
+    // Bypass quota check for admins
+    if (user.role === "admin") {
+        return { ok: true, quota };
+    }
+
     if (
         quota.dailyUsed >= quota.dailyLimit ||
         quota.weeklyUsed >= quota.weeklyLimit ||

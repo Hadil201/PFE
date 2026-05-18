@@ -2,6 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import { decodeToken, getUserByEmail } from "../auth/auth.store";
 
 export interface RequestUser {
+    id: string;
     email: string;
     name: string;
     picture?: string | undefined;

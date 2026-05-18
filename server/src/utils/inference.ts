@@ -1,12 +1,12 @@
 import SoccerActions from "./actions-enum";
 
 // spotting
-const spot = (video: string) => {
+const spot = (video: string, duration: number = 5) => {
     const actionValues = Object.values(SoccerActions);
     const detectedActions = [];
 
-    // 1. Determine if this video has actions (1/4 chance)
-    const hasActions = Math.random() < 0.25;
+    // 1. Determine if this video has actions (always true for simulation)
+    const hasActions = true;
 
     if (hasActions) {
         // 2. Determine how many actions (1 to 3)
@@ -16,9 +16,16 @@ const spot = (video: string) => {
             // Pick a random action from the Enum
             const randomAction = actionValues[Math.floor(Math.random() * actionValues.length)];
 
+            // Random start time within duration
+            const start = Math.random() * (duration - 1);
+            // Action lasts 0.5 to 2 seconds, but capped at duration
+            const end = Math.min(start + 0.5 + Math.random() * 1.5, duration);
+
             detectedActions.push({
-                action: randomAction,
-                timestamp: `${Math.floor(Math.random() * 90)}:${Math.floor(Math.random() * 60).toString().padStart(2, '0')}`,
+                id: `event-${Date.now()}-${i}`,
+                label: randomAction,
+                start: parseFloat(start.toFixed(2)),
+                end: parseFloat(end.toFixed(2)),
                 confidence: parseFloat(Math.random().toFixed(2))
             });
         }
@@ -31,7 +38,8 @@ const spot = (video: string) => {
             videoPath: video,
             detectedActions: detectedActions, // Array of 1-3 actions (or empty)
             processingTime: Math.random() * 2.5, // Mock processing time in seconds
-            modelVersion: "v1.0-mock-random"
+            modelVersion: "v1.0-mock-random",
+            duration: duration
         }
     };
 };

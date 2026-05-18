@@ -15,6 +15,9 @@ import {
     setUserQuota as setUserQuotaInStore,
 } from "../auth/auth.store";
 import { mlInferenceService } from "../services/mlInference.service";
+import { ffmpegService } from "../services/ffmpeg.service";
+import { aiService } from "../services/ai.service";
+import { socketService } from "../services/socket.service";
 
 export interface ActionEvent {
     id: string;
@@ -360,75 +363,54 @@ export const startInference = async (req: AuthenticatedRequest, res: Response, n
             quota: quotaResult.quota,
         });
 
-        // Run inference in background
+        // Run inference in background following the new requested process
         (async () => {
             try {
-                ioRef?.emit("inference:started", { jobId, videoId });
+                // 5. Le serveur utilise FFmpeg pour enregistrer le morceau.
+                // Each chunk should have userId prefix
+                const userId = user.id;
+                
+                // Notify started
+                socketService.broadcast("inference:started", { jobId, videoId });
 
-                if (isActionSpotting) {
-                    const result = await mlInferenceService.runActionSpotting(video.url, {
-                        modelType: 'action-spotting',
-                        modelName: modelName ?? "spotting-v1",
-                        selectedClasses: classes,
-                        confidenceThreshold: 0.5,
-                        chunkDuration: safeChunkDuration
-                    });
-                    // Simulate progressive event emission for UI feedback
-                    // We split the results over time to make it look "live"
-                    for (const event of result.events) {
-                        // Artificial delay between events to show progress in UI
-                        await new Promise(resolve => setTimeout(resolve, 800));
+                const videoPath = await ffmpegService.recordStream(video.url, safeChunkDuration, userId);
 
-                        ioRef?.emit("inference:event", { jobId, videoId, event });
-                        ioRef?.emit("inference:playhead", { jobId, videoId, position: event.end });
-                    }
-                    
-                    await Video.findByIdAndUpdate(videoId, {
-                        $set: {
-                            status: "done",
-                            "metadata.lastInference": {
-                                jobId,
-                                modelName,
-                                inferenceType: "action-spotting",
-                                events: result.events,
-                                completedAt: new Date(),
-                            },
-                        },
-                    }).exec();
-
-                    ioRef?.emit("inference:completed", { jobId, videoId, events: result.events });
-                } else {
-                    const result = await mlInferenceService.runSummarization(video.url, {
-                        modelType: 'summarization',
-                        modelName: modelName ?? "summary-v1",
-                        confidenceThreshold: 0.5,
-                        chunkDuration: safeChunkDuration
-                    });
-
-                    // Summarization takes some "thinking" time
-                    await new Promise(resolve => setTimeout(resolve, 3000));
-
-                    ioRef?.emit("inference:summary", { jobId, videoId, summary: result.summary });
-                    
-                    await Video.findByIdAndUpdate(videoId, {
-                        $set: {
-                            status: "done",
-                            "metadata.lastInference": {
-                                jobId,
-                                modelName,
-                                inferenceType: "summarization",
-                                summary: result.summary,
-                                completedAt: new Date(),
-                            },
-                        },
-                    }).exec();
-
-                    ioRef?.emit("inference:completed", { jobId, videoId, summary: result.summary });
+                // 6. Une fois le morceau prêt, le serveur télécharge le morceau sur Google Drive de l’utilisateur.
+                try {
+                    const fileStream = fs.createReadStream(videoPath);
+                    const fileName = videoPath.split(/[\\/]/).pop() || 'segment.mp4';
+                    await googleDriveService.uploadFile(fileName, 'video/mp4', fileStream);
+                } catch (uploadError) {
+                    console.error('Failed to upload to Google Drive, continuing anyway:', uploadError);
                 }
+
+                // 7. Le serveur lance l’inférence / l’analyse du morceau prêt
+                // 8. Une fois le résultat d’analyse prêt le serveur l’envoie au client en utilisant le WebSocket.
+                const analysisResult = await aiService.analyzeSegment(videoPath, userId, videoId, safeChunkDuration);
+
+                // Update video status in DB
+                await Video.findByIdAndUpdate(videoId, {
+                    $set: {
+                        status: "done",
+                        "metadata.lastInference": {
+                            jobId,
+                            modelName,
+                            inferenceType,
+                            events: analysisResult.data.detectedActions,
+                            completedAt: new Date(),
+                        },
+                    },
+                }).exec();
+
+                // Cleanup temp file
+                if (fs.existsSync(videoPath)) {
+                    fs.unlinkSync(videoPath);
+                }
+
             } catch (err) {
                 console.error("Inference background task failed:", err);
                 await Video.findByIdAndUpdate(videoId, { $set: { status: "ready" } }).exec();
-                ioRef?.emit("inference:error", { jobId, videoId, message: "Erreur lors de l'analyse AI." });
+                socketService.broadcast("inference:error", { jobId, videoId, message: "Erreur lors de l'analyse AI." });
             }
         })();
     } catch (error) {

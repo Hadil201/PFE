@@ -3,6 +3,7 @@ import cors from "cors";
 import path from "path";
 import videoRoutes from "./routes/video.routes";
 import authRoutes from "./auth/auth.controller";
+import inferenceRoutes from "./routes/inference.routes";
 
 const app = express();
 
@@ -23,6 +24,7 @@ app.use("/temp", cors(), express.static(path.resolve(process.cwd(), "temp")));
 
 app.use("/api/auth", authRoutes);
 app.use("/api/videos", videoRoutes);
+app.use("/api/inference", inferenceRoutes);
 
 app.get("/api/health", (_req, res) => {
     res.json({ ok: true });

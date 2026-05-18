@@ -276,6 +276,18 @@ export default function VideoAnalysis() {
     };
 
     useEffect(() => {
+        const selected = videos.find(v => v._id === selectedVideoId);
+        if (selected?.metadata?.lastInference) {
+            const inference = selected.metadata.lastInference as any;
+            if (inference.events) setTimeline(inference.events);
+            if (inference.summary) setSummary(inference.summary);
+        } else {
+            setTimeline([]);
+            setSummary("");
+        }
+    }, [selectedVideoId, videos]);
+
+    useEffect(() => {
         void refreshData();
         const socket = io("http://localhost:5000");
 
@@ -696,10 +708,10 @@ export default function VideoAnalysis() {
                                 // Could seek video to event.start time
                             }}
                         />
-                        {inferenceType === "summarization" && (
+                        {(inferenceType === "summarization" || timeline.length > 0) && (
                             <Box sx={{ mt: 3, p: 2, bgcolor: "rgba(255,255,255,0.05)", borderRadius: 2 }}>
                                 <Typography variant="h6" sx={{ mb: 2, color: "#f8fafc" }}>
-                                    Résumé détaillé de l'analyse
+                                    {inferenceType === "summarization" ? "Résumé détaillé de l'analyse" : "Analyse détaillée de la timeline"}
                                 </Typography>
                                 <Typography
                                     variant="body1"
@@ -711,7 +723,7 @@ export default function VideoAnalysis() {
                                         lineHeight: 1.6
                                     }}
                                 >
-                                    {summary || generateTimelineSummary()}
+                                    {inferenceType === "summarization" ? (summary || "Génération du résumé...") : generateTimelineSummary()}
                                 </Typography>
                             </Box>
                         )}

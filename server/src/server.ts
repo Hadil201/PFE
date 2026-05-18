@@ -13,6 +13,12 @@ const io = new Server(httpServer, {
     },
 });
 
+import { socketService } from "./services/socket.service";
+socketService.initFromIo(io);
+
+import { initRealtime } from "./controllers/video.controller";
+initRealtime(io);
+
 // Initialize inference socket handler
 const inferenceHandler = createInferenceSocketHandler(io);
 
