@@ -41,7 +41,7 @@ export default function Admin() {
     const [quotas, setQuotas] = useState<Quota[]>([]);
     const [quotaDialog, setQuotaDialog] = useState<{ open: boolean; user?: AppUser }>({ open: false });
     const [quotaValues, setQuotaValues] = useState({ dailyLimit: 12, weeklyLimit: 500, monthlyLimit: 5 });
-    const [globalQuotaValues, setGlobalQuotaValues] = useState({ dailyLimit: 12, weeklyLimit: 500, simultaneousStreams: 5 });
+    const [globalQuotaValues, setGlobalQuotaValues] = useState({ dailyLimit: 60, weeklyLimit: 500, simultaneousStreams: 30 });
     const [isSavingQuota, setIsSavingQuota] = useState(false);
     const [isApplyingGlobal, setIsApplyingGlobal] = useState(false);
     const [showAddUserForm, setShowAddUserForm] = useState(false);
@@ -145,7 +145,7 @@ export default function Admin() {
     };
 
     const handleRestoreDefaults = () => {
-        setGlobalQuotaValues({ dailyLimit: 12, weeklyLimit: 500, simultaneousStreams: 5 });
+        setGlobalQuotaValues({ dailyLimit: 60, weeklyLimit: 500, simultaneousStreams: 30 });
     };
 
     return (
@@ -161,14 +161,6 @@ export default function Admin() {
                         </Typography>
                     </Box>
                     <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
-                        <Button
-                            variant="outlined"
-                            startIcon={<Download size={16} />}
-                            sx={{ borderColor: "rgba(148, 163, 184, 0.24)", color: "#e2e8f0" }}
-                            onClick={exportCsv}
-                        >
-                            Exporter CSV
-                        </Button>
                         <Button
                             variant="contained"
                             startIcon={<Plus size={16} />}
@@ -254,6 +246,7 @@ export default function Admin() {
                                                             '&:hover': { background: 'rgba(255,255,255,0.06)' },
                                                         }}
                                                         onClick={() => handleOpenQuotaDialog(user)}
+                                                        disabled={user.role === "admin"}
                                                     >
                                                         <Pencil size={16} />
                                                     </IconButton>
@@ -265,6 +258,7 @@ export default function Admin() {
                                                             '&:hover': { background: 'rgba(255,255,255,0.06)' },
                                                         }}
                                                         onClick={() => void (user.blocked ? unblockUser(user.email) : blockUser(user.email)).then(loadAdminData)}
+                                                        disabled={user.role === "admin"}
                                                     >
                                                         {user.blocked ? <Unlock size={16} /> : <Slash size={16} />}
                                                     </IconButton>
@@ -294,19 +288,22 @@ export default function Admin() {
 
                         <Box sx={{ display: "grid", gap: 3 }}>
                             <TextField
-                                label="Limite quotidienne (Heures)"
+                                label="Limite quotidienne (Minutes — ex: 60)"
+                                placeholder="60"
                                 type="number"
                                 value={globalQuotaValues.dailyLimit}
                                 onChange={(e) => setGlobalQuotaValues((prev) => ({ ...prev, dailyLimit: Number(e.target.value) }))}
                             />
                             <TextField
-                                label="Limite hebdomadaire (GB)"
+                                label="Limite mensuelle (heures — par exemple, 30)"
+                                placeholder="30"
                                 type="number"
-                                value={globalQuotaValues.weeklyLimit}
-                                onChange={(e) => setGlobalQuotaValues((prev) => ({ ...prev, weeklyLimit: Number(e.target.value) }))}
+                                value={Math.floor(globalQuotaValues.dailyLimit / 2)}
+                                onChange={(e) => setGlobalQuotaValues((prev) => ({ ...prev, dailyLimit: Number(e.target.value) * 2 }))}
                             />
                             <TextField
-                                label="Flux simultanés"
+                                label="Morceau(sec — ex: 30)"
+                                placeholder="30"
                                 type="number"
                                 value={globalQuotaValues.simultaneousStreams}
                                 onChange={(e) => setGlobalQuotaValues((prev) => ({ ...prev, simultaneousStreams: Number(e.target.value) }))}

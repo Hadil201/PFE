@@ -110,6 +110,10 @@ router.patch("/users/:email/block", requireAuth, requireAdmin, async (req, res, 
         }
         res.json(user);
     } catch (error) {
+        if (error instanceof Error && error.message.includes("admin")) {
+            res.status(403).json({ message: error.message });
+            return;
+        }
         next(error);
     }
 });
@@ -123,6 +127,10 @@ router.patch("/users/:email/unblock", requireAuth, requireAdmin, async (req, res
         }
         res.json(user);
     } catch (error) {
+        if (error instanceof Error && error.message.includes("admin")) {
+            res.status(403).json({ message: error.message });
+            return;
+        }
         next(error);
     }
 });

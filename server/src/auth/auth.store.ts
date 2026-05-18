@@ -189,13 +189,18 @@ export const getAllUsers = async (): Promise<AuthUser[]> => {
 };
 
 export const setUserBlocked = async (email: string, blocked: boolean): Promise<AuthUser | null> => {
-    const user = await User.findOneAndUpdate(
-        { email: normalizeEmail(email) },
-        { $set: { blocked } },
-        { new: true, runValidators: true }
-    ).exec();
+    const normalized = normalizeEmail(email);
+    const user = await User.findOne({ email: normalized }).exec();
+    if (!user) return null;
 
-    return user ? toAuthUser(user) : null;
+    if (user.role === "admin") {
+        // Prevent blocking/unblocking admin accounts via API to avoid accidental lockout
+        throw new Error("Cannot block or unblock an admin user");
+    }
+
+    user.blocked = blocked;
+    await user.save();
+    return toAuthUser(user);
 };
 
 export const getOrCreateQuota = async (email: string): Promise<Quota> => {
