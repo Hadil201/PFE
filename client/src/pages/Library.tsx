@@ -56,9 +56,7 @@ export default function Library() {
                     >
                         Télécharger une vidéo
                     </Button>
-                    <Button variant="outlined" onClick={() => void fetchVideos()}>
-                        Rafraîchir
-                    </Button>
+
                     {user?.role === "admin" && (
                         <Button
                             variant="contained"
