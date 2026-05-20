@@ -7,6 +7,7 @@ export class AiService {
         try {
             // 7. Le serveur lance l’inférence / l’analyse du morceau prêt
             const result = spot(videoPath, duration);
+            console.log(result); // Debug log for inference result
 
             // 8. Une fois le résultat d’analyse est prêt le serveur l’envoie au client en utilisant le WebSocket.
             // Match frontend expectations
@@ -19,9 +20,9 @@ export class AiService {
                 }
             }
 
-            socketService.broadcast('inference:completed', { 
-                videoId, 
-                events: result.data.detectedActions 
+            socketService.broadcast('inference:completed', {
+                videoId,
+                events: result.data.detectedActions
             });
 
             // 10-lorsqu'on morceau est traité , on met a jour la quota quotidienne pour l'utilisateur

@@ -13,10 +13,10 @@ interface VideoPlayerProps {
   autoPlay?: boolean;
 }
 
-export default function VideoPlayer({ 
-  src, 
-  title, 
-  onTimeUpdate, 
+export default function VideoPlayer({
+  src,
+  title,
+  onTimeUpdate,
   onLoadedMetadata,
   className,
   autoPlay = true
@@ -30,10 +30,10 @@ export default function VideoPlayer({
   const getFullUrl = (url: string) => {
     if (!url) return "";
     if (url.startsWith('http')) return url;
-    
+
     const cleanPath = url.replace(/\\/g, '/').replace(/^\.\//, '').replace(/^\//, '');
     const relativePath = cleanPath.startsWith('temp/') ? cleanPath.substring(5) : cleanPath;
-    
+
     // Construct full backend URL
     const backendBase = "http://localhost:5000";
     return `${backendBase}/temp/${relativePath}`;
@@ -45,7 +45,7 @@ export default function VideoPlayer({
     const isYT = fullSrc.includes('youtube.com') || fullSrc.includes('youtu.be');
     setIsYoutube(isYT);
     setError(null);
-    
+
     if (isYT) return; // ReactPlayer handles YouTube
 
     const video = videoRef.current;
@@ -92,7 +92,7 @@ export default function VideoPlayer({
       video.removeEventListener('error', handleError);
       if (hlsRef.current) hlsRef.current.destroy();
     };
-  }, [fullSrc, autoPlay, onTimeUpdate, onLoadedMetadata]);
+  }, [fullSrc, autoPlay]);
 
   return (
     <Box className={`video-player ${className || ''}`} sx={{ width: '100%' }}>
@@ -104,8 +104,8 @@ export default function VideoPlayer({
           <IconButton size="small" onClick={() => setShowDebug(!showDebug)} sx={{ color: '#64748b' }}>
             <Info fontSize="small" />
           </IconButton>
-          <Button 
-            size="small" 
+          <Button
+            size="small"
             startIcon={<OpenInNew fontSize="small" />}
             onClick={() => window.open(fullSrc, '_blank')}
             sx={{ color: '#3b82f6', fontSize: '0.7rem' }}
@@ -121,7 +121,7 @@ export default function VideoPlayer({
           Type: {isYoutube ? "YouTube" : "Fichier Direct/HLS"}
         </Alert>
       )}
-      
+
       <Box
         sx={{
           position: 'relative',
@@ -147,16 +147,13 @@ export default function VideoPlayer({
         {isYoutube ? (
           <ReactPlayer
             key={fullSrc}
-            url={fullSrc}
+            src={fullSrc}
             width="100%"
             height="100%"
             controls={true}
             playing={autoPlay}
             muted={true}
-            playsinline={true}
             onError={() => setError("Erreur de lecture YouTube.")}
-            onProgress={(state) => onTimeUpdate?.(state.playedSeconds)}
-            onDuration={(duration) => onLoadedMetadata?.(duration)}
           />
         ) : (
           <video
@@ -164,8 +161,6 @@ export default function VideoPlayer({
             style={{ width: '100%', height: '100%', objectFit: 'contain' }}
             controls
             autoPlay={autoPlay}
-            muted={autoPlay}
-            playsInline
           />
         )}
       </Box>
