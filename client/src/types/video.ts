@@ -8,6 +8,7 @@ export interface Video {
     createdAt?: string;
     startTime?: number;
     endTime?: number;
+    metadata?: Record<string, any>;
 }
 
 export interface ActionEvent {

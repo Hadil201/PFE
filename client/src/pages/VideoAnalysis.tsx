@@ -113,7 +113,7 @@ export default function VideoAnalysis() {
     const [uploadFile, setUploadFile] = useState<File | null>(null);
     const [startTime, setStartTime] = useState(0);
     const [endTime, setEndTime] = useState(0);
-    const [timeline, setTimeline] = useState<ActionEvent[]>(GENERATED_SPOTTINGS);
+    const [timeline, setTimeline] = useState<ActionEvent[]>([]);
     const [playhead, setPlayhead] = useState(0);
     const [statusMessage, setStatusMessage] = useState("");
     const [errorMessage, setErrorMessage] = useState("");

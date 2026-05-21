@@ -37,6 +37,7 @@ export interface VideoEntity {
     thumbnail?: string;
     startTime?: number;
     endTime?: number;
+    metadata?: Record<string, unknown>;
 }
 
 const ACTION_CLASSES = [
@@ -97,6 +98,9 @@ const serializeVideo = (video: VideoRecord): VideoEntity => {
     }
     if (video.endTime !== undefined) {
         result.endTime = video.endTime;
+    }
+    if (video.metadata) {
+        result.metadata = video.metadata;
     }
 
     return result;
@@ -421,7 +425,13 @@ export const startInference = async (req: AuthenticatedRequest, res: Response, n
 
                 // 7. Le serveur lance l’inférence / l’analyse du morceau prêt
                 // 8. Une fois le résultat d’analyse prêt le serveur l’envoie au client en utilisant le WebSocket.
-                const analysisResult = await aiService.analyzeSegment(videoPath, userId, videoId, safeChunkDuration);
+                const analysisResult = await aiService.analyzeSegment(
+                    videoPath, 
+                    userId, 
+                    videoId, 
+                    safeChunkDuration, 
+                    inferenceType
+                );
 
                 // Update video status in DB
                 await Video.findByIdAndUpdate(videoId, {
@@ -431,7 +441,8 @@ export const startInference = async (req: AuthenticatedRequest, res: Response, n
                             jobId,
                             modelName,
                             inferenceType,
-                            events: analysisResult.data.detectedActions,
+                            events: (analysisResult.data as any).detectedActions || [],
+                            summary: (analysisResult.data as any).summary || "",
                             completedAt: new Date(),
                         },
                     },

@@ -1,31 +1,39 @@
-import { spot } from '../utils/inference';
+import { spot, summarize } from '../utils/inference';
 import { User } from '../models/User';
 import { socketService } from './socket.service';
 
 export class AiService {
-    async analyzeSegment(videoPath: string, userId: string, videoId: string, duration: number = 5) {
+    async analyzeSegment(
+        videoPath: string, 
+        userId: string, 
+        videoId: string, 
+        duration: number = 5,
+        inferenceType: 'action-spotting' | 'summarization' = 'action-spotting'
+    ) {
         try {
-            // 7. Le serveur lance l’inférence / l’analyse du morceau prêt
-            const result = spot(videoPath, duration);
-            console.log(result); // Debug log for inference result
-
-            // 8. Une fois le résultat d’analyse est prêt le serveur l’envoie au client en utilisant le WebSocket.
-            // Match frontend expectations
-            if (result.success && result.data.detectedActions.length > 0) {
-                for (const event of result.data.detectedActions) {
-                    // Simulate progressive emission like the original controller
-                    await new Promise(resolve => setTimeout(resolve, 500));
-                    socketService.broadcast('inference:event', { videoId, event });
-                    socketService.broadcast('inference:playhead', { videoId, position: event.end });
+            let result;
+            if (inferenceType === 'summarization') {
+                result = summarize(videoPath);
+                if (result.success) {
+                    socketService.broadcast('inference:summary', { videoId, summary: (result.data as any).summary });
+                }
+            } else {
+                result = spot(videoPath, duration);
+                if (result.success && (result.data as any).detectedActions.length > 0) {
+                    for (const event of (result.data as any).detectedActions) {
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                        socketService.broadcast('inference:event', { videoId, event });
+                        socketService.broadcast('inference:playhead', { videoId, position: event.end });
+                    }
                 }
             }
 
             socketService.broadcast('inference:completed', {
                 videoId,
-                events: result.data.detectedActions
+                events: (result.data as any).detectedActions || [],
+                summary: (result.data as any).summary || ""
             });
 
-            // 10-lorsqu'on morceau est traité , on met a jour la quota quotidienne pour l'utilisateur
             await this.updateUserQuota(userId);
 
             return result;

@@ -41,7 +41,13 @@ export class InferenceController {
             }
 
             // 7. Le serveur lance l’inférence / l’analyse du morceau prêt
-            await aiService.analyzeSegment(videoPath, userId, duration);
+            await aiService.analyzeSegment(
+                videoPath, 
+                userId, 
+                videoId || 'unknown', 
+                duration,
+                (req.body.inferenceType as any) || 'action-spotting'
+            );
 
             // Optional: cleanup temp file
             // fs.unlinkSync(videoPath);

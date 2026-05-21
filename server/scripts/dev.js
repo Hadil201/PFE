@@ -124,6 +124,7 @@ const startLocalMongo = async () => {
         {
             cwd: serverRoot,
             stdio: ["ignore", "ignore", "inherit"],
+            shell: true,
         }
     );
 
@@ -153,6 +154,7 @@ const startServer = (mongoUri) => {
         cwd: serverRoot,
         stdio: "inherit",
         env,
+        shell: true,
     });
 
     serverProcess.on("exit", (code, signal) => {
