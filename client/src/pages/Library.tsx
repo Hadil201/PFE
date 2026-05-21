@@ -82,27 +82,38 @@ export default function Library() {
                                     component="img"
                                     height="180"
                                     image={
-                                        video.thumbnail ||
-                                        "https://via.placeholder.com/300x160"
+                                        video.thumbnail ?
+                                        (video.thumbnail.startsWith('http') ? video.thumbnail : `http://localhost:5000/${video.thumbnail}`) :
+                                        "https://via.placeholder.com/300x160?text=No+Thumbnail"
                                     }
+                                    sx={{ objectFit: 'cover' }}
                                 />
 
                                 <CardContent>
                                     <Stack spacing={1.5}>
-                                        <Typography variant="h6">{video.title}</Typography>
+                                        <Typography variant="h6" noWrap>{video.title}</Typography>
                                         <Typography variant="body2" color="text.secondary">
                                             Statut: {video.status}
                                         </Typography>
 
-                                        <Box>
+                                        <Stack direction="row" spacing={1}>
+                                            <Button
+                                                variant="contained"
+                                                size="small"
+                                                onClick={() => navigate(`/analysis`, { state: { videoId: video._id } })}
+                                                sx={{ background: "#3b82f6" }}
+                                            >
+                                                Resultat
+                                            </Button>
                                             <Button
                                                 variant="outlined"
                                                 color="error"
+                                                size="small"
                                                 onClick={() => handleDelete(video._id)}
                                             >
                                                 Supprimer
                                             </Button>
-                                        </Box>
+                                        </Stack>
                                     </Stack>
                                 </CardContent>
                             </Card>

@@ -12,6 +12,7 @@ export interface RequestUser {
 
 export interface AuthenticatedRequest extends Request {
     appUser?: RequestUser;
+    file?: Express.Multer.File | undefined;
 }
 
 export const requireAuth = async (req: Request, res: Response, next: NextFunction) => {

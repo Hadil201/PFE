@@ -2,6 +2,7 @@ import ytdl from '@distube/ytdl-core';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { videoProcessingService } from './videoProcessing.service';
+import { createYouTubeStream, getYouTubeBasicInfo, getYouTubeInfo, getYouTubePlaybackError } from './youtubeClient';
 
 export interface YouTubeVideoInfo {
   videoId: string;
@@ -31,16 +32,16 @@ export class YouTubeService {
 
   async getVideoInfo(url: string): Promise<YouTubeVideoInfo> {
     try {
-      const info = await ytdl.getInfo(url);
+      const info = await getYouTubeBasicInfo(url);
       
       return {
-        videoId: info.videoDetails.videoId,
-        title: info.videoDetails.title,
-        duration: parseInt(info.videoDetails.lengthSeconds) || 0,
-        author: info.videoDetails.author.name,
-        description: info.videoDetails.description || '',
-        thumbnail: (info.videoDetails.thumbnails[0]?.url) || '',
-        publishedAt: info.videoDetails.publishDate || '',
+        videoId: info.videoId,
+        title: info.title,
+        duration: info.duration,
+        author: info.author,
+        description: info.description,
+        thumbnail: info.thumbnail,
+        publishedAt: info.publishedAt,
       };
     } catch (error) {
       console.warn('Error getting YouTube video info, using fallback:', error);
@@ -93,14 +94,14 @@ export class YouTubeService {
     sessionId: string = Date.now().toString()
   ): Promise<string> {
     try {
-      const info = await ytdl.getInfo(url);
-      const videoId = info.videoDetails.videoId;
-      const sanitizedTitle = this.sanitizeFileName(info.videoDetails.title);
+      const info = await getYouTubeBasicInfo(url);
+      const videoId = info.videoId;
+      const sanitizedTitle = this.sanitizeFileName(info.title);
       const fileName = `${sessionId}-${videoId}-${sanitizedTitle}.mp4`;
       const outputPath = path.join(this.tempDir, fileName);
+      const stream = await createYouTubeStream(url, { quality, filter: 'audioandvideo' });
 
       return new Promise((resolve, reject) => {
-        const stream = ytdl(url, { quality });
         const writeStream = require('fs').createWriteStream(outputPath);
 
         stream.pipe(writeStream);
@@ -116,13 +117,15 @@ export class YouTubeService {
         });
 
         stream.on('error', (error: Error) => {
-          console.error('Error streaming YouTube video:', error);
-          reject(error);
+          const playbackError = getYouTubePlaybackError(error);
+          console.error('Error streaming YouTube video:', playbackError);
+          reject(playbackError);
         });
       });
     } catch (error) {
-      console.error('Error downloading YouTube video:', error);
-      throw error;
+      const playbackError = getYouTubePlaybackError(error);
+      console.error('Error downloading YouTube video:', playbackError);
+      throw playbackError;
     }
   }
 
@@ -148,14 +151,14 @@ export class YouTubeService {
 
   async getAudioOnly(url: string, sessionId: string = Date.now().toString()): Promise<string> {
     try {
-      const info = await ytdl.getInfo(url);
-      const videoId = info.videoDetails.videoId;
-      const sanitizedTitle = this.sanitizeFileName(info.videoDetails.title);
+      const info = await getYouTubeBasicInfo(url);
+      const videoId = info.videoId;
+      const sanitizedTitle = this.sanitizeFileName(info.title);
       const fileName = `${sessionId}-${videoId}-${sanitizedTitle}.mp3`;
       const outputPath = path.join(this.tempDir, fileName);
+      const stream = await createYouTubeStream(url, { quality: 'highestaudio', filter: 'audioonly' });
 
       return new Promise((resolve, reject) => {
-        const stream = ytdl(url, { quality: 'highestaudio', filter: 'audioonly' });
         const writeStream = require('fs').createWriteStream(outputPath);
 
         stream.pipe(writeStream);
@@ -171,19 +174,21 @@ export class YouTubeService {
         });
 
         stream.on('error', (error: Error) => {
-          console.error('Error streaming YouTube audio:', error);
-          reject(error);
+          const playbackError = getYouTubePlaybackError(error);
+          console.error('Error streaming YouTube audio:', playbackError);
+          reject(playbackError);
         });
       });
     } catch (error) {
-      console.error('Error downloading YouTube audio:', error);
-      throw error;
+      const playbackError = getYouTubePlaybackError(error);
+      console.error('Error downloading YouTube audio:', playbackError);
+      throw playbackError;
     }
   }
 
   async getVideoFormats(url: string): Promise<ytdl.videoFormat[]> {
     try {
-      const info = await ytdl.getInfo(url);
+      const info = await getYouTubeInfo(url);
       return info.formats;
     } catch (error) {
       console.error('Error getting YouTube video formats:', error);
@@ -213,8 +218,8 @@ export class YouTubeService {
 
   async getVideoThumbnail(url: string): Promise<string> {
     try {
-      const info = await ytdl.getInfo(url);
-      return info.videoDetails.thumbnails[0]?.url || '';
+      const info = await getYouTubeBasicInfo(url);
+      return info.thumbnail;
     } catch (error) {
       console.error('Error getting YouTube video thumbnail:', error);
       return '';

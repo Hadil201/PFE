@@ -3,6 +3,7 @@ import { ffmpegService } from '../services/ffmpeg.service';
 import { googleDriveService } from '../services/googleDrive.service';
 import { aiService } from '../services/ai.service';
 import fs from 'fs';
+import path from 'path';
 
 export class InferenceController {
     async startAnalysis(req: Request, res: Response) {
@@ -18,11 +19,19 @@ export class InferenceController {
 
         try {
             // 5. Le serveur utilise FFmpeg pour enregistrer le morceau.
-            const videoPath = await ffmpegService.recordStream(url, duration, userId);
+            const { videoId, source } = req.body;
+            const videoPath = await ffmpegService.recordStream(
+                url, 
+                duration, 
+                userId, 
+                videoId || 'unknown', 
+                source || 'uploads', 
+                1
+            );
 
             // 6. Une fois le morceau prêt, le serveur télécharge le morceau sur Google Drive de l’utilisateur.
             const fileStream = fs.createReadStream(videoPath);
-            const fileName = videoPath.split(/[\\/]/).pop() || 'segment.mp4';
+            const fileName = path.basename(videoPath);
             
             try {
                 await googleDriveService.uploadFile(fileName, 'video/mp4', fileStream);

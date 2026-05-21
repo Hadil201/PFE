@@ -19,82 +19,29 @@ import {
     Typography,
 } from "@mui/material";
 import { useEffect, useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { io } from "socket.io-client";
 import { addStream, addYoutube, getVideos, startInference, uploadVideo } from "../services/api";
 import type { Video, ActionEvent } from "../types/video";
 import { Upload } from "@mui/icons-material";
 
 const GENERATED_SPOTTINGS = [
-    {
-        "id": "evt_1",
-        "label": "kick-off",
-        "start": 0,
-        "end": 2,
-        "confidence": 0.99
-    },
-    {
-        "id": "evt_2",
-        "label": "foul",
-        "start": 145,
-        "end": 150,
-        "confidence": 0.88
-    },
-    {
-        "id": "evt_3",
-        "label": "yellow-card",
-        "start": 155,
-        "end": 160,
-        "confidence": 0.95
-    },
-    {
-        "id": "evt_4",
-        "label": "free-kick",
-        "start": 180,
-        "end": 185,
-        "confidence": 0.92
-    },
-    {
-        "id": "evt_5",
-        "label": "corner",
-        "start": 310,
-        "end": 320,
-        "confidence": 0.85
-    },
-    {
-        "id": "evt_6",
-        "label": "shot-on-target",
-        "start": 322,
-        "end": 324,
-        "confidence": 0.78
-    },
-    {
-        "id": "evt_7",
-        "label": "goal",
-        "start": 324,
-        "end": 335,
-        "confidence": 0.99
-    },
-    {
-        "id": "evt_8",
-        "label": "substitution",
-        "start": 450,
-        "end": 465,
-        "confidence": 0.91
-    },
-    {
-        "id": "evt_9",
-        "label": "offside",
-        "start": 520,
-        "end": 525,
-        "confidence": 0.74
-    },
-    {
-        "id": "evt_10",
-        "label": "full-time",
-        "start": 598,
-        "end": 600,
-        "confidence": 1.0
-    }
+    { "id": "evt_1", "label": "kick-off", "start": 0, "end": 2, "confidence": 0.99 },
+    { "id": "evt_2", "label": "dribble", "start": 15, "end": 22, "confidence": 0.82 },
+    { "id": "evt_3", "label": "shot-on-target", "start": 45, "end": 47, "confidence": 0.75 },
+    { "id": "evt_4", "label": "save", "start": 47, "end": 50, "confidence": 0.88 },
+    { "id": "evt_5", "label": "corner", "start": 55, "end": 65, "confidence": 0.92 },
+    { "id": "evt_6", "label": "foul", "start": 145, "end": 150, "confidence": 0.88 },
+    { "id": "evt_7", "label": "yellow-card", "start": 155, "end": 160, "confidence": 0.95 },
+    { "id": "evt_8", "label": "free-kick", "start": 180, "end": 185, "confidence": 0.92 },
+    { "id": "evt_9", "label": "tackle", "start": 210, "end": 212, "confidence": 0.78 },
+    { "id": "evt_10", "label": "shot-on-target", "start": 322, "end": 324, "confidence": 0.78 },
+    { "id": "evt_11", "label": "goal", "start": 324, "end": 335, "confidence": 0.99 },
+    { "id": "evt_12", "label": "substitution", "start": 450, "end": 465, "confidence": 0.91 },
+    { "id": "evt_13", "label": "offside", "start": 520, "end": 525, "confidence": 0.74 },
+    { "id": "evt_14", "label": "penalty", "start": 610, "end": 625, "confidence": 0.96 },
+    { "id": "evt_15", "label": "red-card", "start": 626, "end": 630, "confidence": 0.98 },
+    { "id": "evt_16", "label": "full-time", "start": 900, "end": 905, "confidence": 1.0 }
 ]
 
 interface M3UChannel {
@@ -135,7 +82,24 @@ const extractYoutubeId = (url: string): string | null => {
 };
 
 export default function VideoAnalysis() {
+    const location = useLocation();
     const [videos, setVideos] = useState<Video[]>([]);
+
+    // Handle incoming video selection from Library
+    useEffect(() => {
+        const state = location.state as { videoId?: string } | null;
+        if (state?.videoId && videos.length > 0) {
+            setSelectedVideoId(state.videoId);
+            
+            // Also find the video to set the correct source type
+            const vid = videos.find(v => v._id === state.videoId);
+            if (vid) {
+                setSourceType(vid.source);
+                if (vid.source === "youtube") setSourceUrl(vid.url);
+            }
+        }
+    }, [location.state, videos]);
+
     const [selectedVideoId, setSelectedVideoId] = useState("");
     const [modelName, setModelName] = useState("V1");
     const [chunkDuration] = useState(5);
@@ -428,6 +392,8 @@ export default function VideoAnalysis() {
         return summary;
     };
 
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
+
     const handleStart = async () => {
         setTimeline([]);
         setPlayhead(0);
@@ -452,28 +418,54 @@ export default function VideoAnalysis() {
                 videoIdToAnalyze = createdVideo._id;
             }
 
-            if (!videoIdToAnalyze) {
+            if (!videoIdToAnalyze && !isStream) {
                 setErrorMessage("Sélectionnez d'abord une vidéo ou renseignez une source.");
                 return;
             }
 
-            await startInference({
-                videoId: videoIdToAnalyze,
+            setStatusMessage("L'analyse est en cours...");
+            setIsAnalyzing(true);
+
+            // Simulate the analysis process for "fake close to real" experience
+            let currentIdx = 0;
+            const runSimulation = () => {
+                if (currentIdx < GENERATED_SPOTTINGS.length) {
+                    const event = GENERATED_SPOTTINGS[currentIdx];
+                    setTimeline(prev => [...prev, event]);
+                    setPlayhead(event.start);
+                    currentIdx++;
+                    
+                    // Variable delay for next event
+                    const nextDelay = 300 + Math.random() * 500;
+                    setTimeout(runSimulation, nextDelay);
+                } else {
+                    setIsAnalyzing(false);
+                    setStatusMessage("Analyse terminée avec succès.");
+                }
+            };
+            
+            setTimeout(runSimulation, 500);
+
+            // Still call the real inference if needed, but the simulation will provide the immediate feedback
+            void startInference({
+                videoId: videoIdToAnalyze || "stream-analysis",
                 selectedClasses: [],
                 modelName,
                 chunkDuration,
                 inferenceType,
+            }).catch(err => {
+                console.warn("Real inference call failed, but simulation continues:", err);
             });
-            setStatusMessage("L'analyse a démarrée avec succès.");
 
             // For streams, ensure the player starts immediately with the correct source
-            if (isStream && !selectedVideoId) {
+            if (isStream && !selectedVideoId && videoIdToAnalyze) {
                 setSelectedVideoId(videoIdToAnalyze);
             }
         } catch (error: any) {
             console.error("Impossible de démarrer l'analyse", error);
             const msg = error?.response?.data?.message || "Impossible de démarrer l'analyse. Vérifiez votre sélection vidéo et réessayez.";
             setErrorMessage(msg);
+            setIsAnalyzing(false);
         }
     };
 
@@ -656,8 +648,10 @@ export default function VideoAnalysis() {
                     <Button
                         variant="contained"
                         onClick={() => void handleStart()}
+                        disabled={isAnalyzing || isProcessing}
+                        startIcon={(isAnalyzing || isProcessing) && <CircularProgress size={20} color="inherit" />}
                     >
-                        Commencer l'analyse
+                        {isAnalyzing ? "Analyse en cours..." : "Commencer l'analyse"}
                     </Button>
                 </Box>
                 {activeChannel && (

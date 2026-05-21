@@ -1,3 +1,4 @@
+import '../config/ffmpeg';
 import ffmpeg from 'fluent-ffmpeg';
 import { promises as fs } from 'fs';
 import path from 'path';

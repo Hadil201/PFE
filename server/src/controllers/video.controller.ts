@@ -135,8 +135,11 @@ export const uploadVideo = async (req: AuthenticatedRequest, res: Response, next
         if (process.env.GOOGLE_DRIVE_FOLDER_ID && req.file) {
             try {
                 const fileBuffer = fs.readFileSync(req.file.path);
+                const userPrefix = req.appUser?.email ? `${req.appUser.email.split('@')[0]}-` : '';
+                const driveFileName = `${userPrefix}${req.file.originalname}`;
+                
                 const driveFile = await googleDriveService.uploadFile(
-                    req.file.originalname,
+                    driveFileName,
                     req.file.mimetype,
                     fileBuffer
                 );
@@ -169,6 +172,18 @@ export const uploadVideo = async (req: AuthenticatedRequest, res: Response, next
         }
 
         const video = await Video.create(videoInput);
+
+        // Generate thumbnail
+        try {
+            const thumbSource = req.file ? req.file.path : url;
+            const thumbPath = await ffmpegService.generateThumbnail(thumbSource, video._id.toString());
+            const relativeThumb = path.relative(process.cwd(), thumbPath).replace(/\\/g, "/");
+            await Video.findByIdAndUpdate(video._id, { $set: { thumbnail: relativeThumb } });
+            video.thumbnail = relativeThumb;
+        } catch (thumbError) {
+            console.error("Failed to generate upload thumbnail:", thumbError);
+        }
+
         res.status(201).json(serializeVideo(video));
     } catch (error) {
         next(error);
@@ -217,6 +232,7 @@ export const addYoutube = async (req: AuthenticatedRequest, res: Response, next:
             title: videoInfo.title,
             source: "youtube",
             url,
+            thumbnail: videoInfo.thumbnail,
             status: "ready",
             metadata: { videoInfo },
         };
@@ -255,6 +271,17 @@ export const addStream = async (req: AuthenticatedRequest, res: Response, next: 
         }
 
         const video = await Video.create(videoInput);
+
+        // Generate thumbnail
+        try {
+            const thumbSource = req.file ? req.file.path : url;
+            const thumbPath = await ffmpegService.generateThumbnail(thumbSource, video._id.toString());
+            const relativeThumb = path.relative(process.cwd(), thumbPath).replace(/\\/g, "/");
+            await Video.findByIdAndUpdate(video._id, { $set: { thumbnail: relativeThumb } });
+            video.thumbnail = relativeThumb;
+        } catch (thumbError) {
+            console.error("Failed to generate upload thumbnail:", thumbError);
+        }
 
         res.status(201).json(serializeVideo(video));
     } catch (error) {
@@ -373,12 +400,20 @@ export const startInference = async (req: AuthenticatedRequest, res: Response, n
                 // Notify started
                 socketService.broadcast("inference:started", { jobId, videoId });
 
-                const videoPath = await ffmpegService.recordStream(video.url, safeChunkDuration, userId);
+                // Use the new recordStream signature with source and index
+                const videoPath = await ffmpegService.recordStream(
+                    video.url, 
+                    safeChunkDuration, 
+                    userId, 
+                    videoId, 
+                    video.source, 
+                    1 // Defaulting to piece index 1 for now
+                );
 
                 // 6. Une fois le morceau prêt, le serveur télécharge le morceau sur Google Drive de l’utilisateur.
                 try {
                     const fileStream = fs.createReadStream(videoPath);
-                    const fileName = videoPath.split(/[\\/]/).pop() || 'segment.mp4';
+                    const fileName = path.basename(videoPath);
                     await googleDriveService.uploadFile(fileName, 'video/mp4', fileStream);
                 } catch (uploadError) {
                     console.error('Failed to upload to Google Drive, continuing anyway:', uploadError);
