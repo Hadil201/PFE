@@ -536,3 +536,48 @@ export const getAllQuotas = async (_req: Request, res: Response, next: NextFunct
         next(error);
     }
 };
+
+export const saveInferenceResult = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+        const videoId = String(req.params.id ?? "");
+        if (!Types.ObjectId.isValid(videoId)) {
+            res.status(400).json({ message: "Un identifiant vidéo valide est requis." });
+            return;
+        }
+
+        const { timeline, summary, inferenceType, modelName } = req.body as {
+            timeline?: ActionEvent[];
+            summary?: string;
+            inferenceType?: string;
+            modelName?: string;
+        };
+
+        const video = await Video.findByIdAndUpdate(
+            videoId,
+            {
+                $set: {
+                    status: "done",
+                    "metadata.lastInference": {
+                        jobId: `simulated-${videoId}-${Date.now()}`,
+                        modelName: modelName || "V1",
+                        inferenceType: inferenceType || "action-spotting",
+                        events: timeline || [],
+                        summary: summary || "",
+                        completedAt: new Date(),
+                    },
+                },
+            },
+            { new: true }
+        ).exec();
+
+        if (!video) {
+            res.status(404).json({ message: "Vidéo introuvable dans la base de données." });
+            return;
+        }
+
+        res.json(serializeVideo(video));
+    } catch (error) {
+        next(error);
+    }
+};
+

@@ -21,7 +21,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { io } from "socket.io-client";
-import { addStream, addYoutube, getVideos, startInference, uploadVideo } from "../services/api";
+import { addStream, addYoutube, getVideos, saveInferenceResult, startInference, uploadVideo } from "../services/api";
 import type { Video, ActionEvent } from "../types/video";
 import { Upload } from "@mui/icons-material";
 
@@ -245,6 +245,8 @@ export default function VideoAnalysis() {
             const inference = selected.metadata.lastInference as any;
             if (inference.events) setTimeline(inference.events);
             if (inference.summary) setSummary(inference.summary);
+            if (inference.inferenceType) setInferenceType(inference.inferenceType);
+            if (inference.modelName) setModelName(inference.modelName);
         } else {
             setTimeline([]);
             setSummary("");
@@ -392,6 +394,37 @@ export default function VideoAnalysis() {
         return summary;
     };
 
+    const generateTimelineSummaryForEvents = (events: typeof GENERATED_SPOTTINGS) => {
+        if (events.length === 0) return "Aucun événement détecté dans la timeline.";
+
+        const eventCounts = events.reduce((acc, event) => {
+            acc[event.label] = (acc[event.label] || 0) + 1;
+            return acc;
+        }, {} as Record<string, number>);
+
+        const totalEvents = events.length;
+        const duration = events[events.length - 1]?.end || 0;
+        const minutes = Math.floor(duration / 60);
+        const seconds = duration % 60;
+
+        let summaryText = `**Analyse de la Timeline (Durée: ${minutes}:${seconds.toString().padStart(2, '0')})**\n\n`;
+        summaryText += `**Total des événements détectés:** ${totalEvents}\n\n`;
+        summaryText += `**Détail des événements par type:**\n`;
+
+        Object.entries(eventCounts).forEach(([event, count]) => {
+            const percentage = ((count / totalEvents) * 100).toFixed(1);
+            summaryText += `- **${event}:** ${count} (${percentage}%)\n`;
+        });
+
+        summaryText += `\n**Chronologie des événements:**\n`;
+        events.forEach((event, index) => {
+            const time = `${Math.floor(event.start / 60)}:${(event.start % 60).toString().padStart(2, '0')}`;
+            summaryText += `${index + 1}. **${time}** - ${event.label} (confiance: ${(event.confidence * 100).toFixed(1)}%)\n`;
+        });
+
+        return summaryText;
+    };
+
     const [isAnalyzing, setIsAnalyzing] = useState(false);
 
     const handleStart = async () => {
@@ -441,6 +474,24 @@ export default function VideoAnalysis() {
                 } else {
                     setIsAnalyzing(false);
                     setStatusMessage("Analyse terminée avec succès.");
+
+                    // Stock result in database
+                    if (videoIdToAnalyze) {
+                        const finalSummary = inferenceType === "summarization"
+                            ? "Résumé détaillé de l'analyse (Simulation):\nCette vidéo a été analysée avec succès. Elle contient 16 événements clés couvrant les actions de jeu majeures comme les passes décisives, les fautes et les buts. L'analyse montre une grande intensité dans le jeu avec une précision de détection moyenne de 90%."
+                            : generateTimelineSummaryForEvents(GENERATED_SPOTTINGS);
+
+                        saveInferenceResult(videoIdToAnalyze, {
+                            timeline: GENERATED_SPOTTINGS,
+                            summary: finalSummary,
+                            inferenceType,
+                            modelName
+                        }).then(() => {
+                            void refreshData();
+                        }).catch(err => {
+                            console.error("Failed to save simulated inference result:", err);
+                        });
+                    }
                 }
             };
             
@@ -498,30 +549,7 @@ export default function VideoAnalysis() {
                                 </Button>
                             </ButtonGroup>
 
-                            <FormControl size="small" sx={{ minWidth: 250 }}>
-                                <InputLabel id="library-select-label">Bibliothèque</InputLabel>
-                                <Select
-                                    labelId="library-select-label"
-                                    label="Bibliothèque"
-                                    value={selectedVideoId}
-                                    onChange={(event: SelectChangeEvent) => {
-                                        const vidId = event.target.value;
-                                        setSelectedVideoId(vidId);
-                                        const vid = videos.find(v => v._id === vidId);
-                                        if (vid) {
-                                            setSourceType(vid.source);
-                                            if (vid.source === "youtube") setSourceUrl(vid.url);
-                                        }
-                                    }}
-                                >
-                                    <MenuItem value=""><em>Choisir une vidéo...</em></MenuItem>
-                                    {videos.map((v) => (
-                                        <MenuItem key={v._id} value={v._id}>
-                                            {v.title}
-                                        </MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
+                            
                         </Stack>
 
                         <Stack direction="row" spacing={2} sx={{ mb: 2 }}>

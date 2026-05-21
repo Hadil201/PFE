@@ -101,6 +101,19 @@ export const startInference = async (payload: {
     return res.data;
 };
 
+export const saveInferenceResult = async (
+    id: string,
+    payload: {
+        timeline: any[];
+        summary: string;
+        inferenceType: string;
+        modelName: string;
+    }
+) => {
+    const res = await api.put(`/videos/${id}/inference`, payload);
+    return res.data;
+};
+
 export const getQuota = async () => {
     const res = await api.get("/videos/quota");
     return res.data;

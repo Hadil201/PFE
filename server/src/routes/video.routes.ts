@@ -12,6 +12,7 @@ import {
     startInference,
     setUserQuota,
     getAllQuotas,
+    saveInferenceResult,
 } from "../controllers/video.controller";
 import { requireAdmin, requireAuth } from "../middlewares/auth";
 import { uploadVideo as uploadMiddleware } from "../middlewares/upload";
@@ -26,9 +27,11 @@ router.delete("/:id", requireAuth, deleteVideo);
 router.get("/actions/classes", requireAuth, listActionClasses);
 router.get("/summarization/models", requireAuth, listSummarizationModels);
 router.post("/inference/start", requireAuth, startInference);
+router.put("/:id/inference", requireAuth, saveInferenceResult);
 router.get("/quota", requireAuth, getQuotaStatus);
 router.get("/admin/overview", requireAuth, requireAdmin, getAdminOverview);
 router.put("/admin/quota/:email", requireAuth, requireAdmin, setUserQuota);
 router.get("/admin/quotas", requireAuth, requireAdmin, getAllQuotas);
+
 
 export default router;

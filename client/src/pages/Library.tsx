@@ -49,23 +49,9 @@ export default function Library() {
                 </Typography>
 
                 <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2, alignItems: "center", mb: 3 }}>
-                    <Button
-                        variant="contained"
-                        sx={{ background: "#22c55e", color: "#020617", '&:hover': { background: '#16a34a' } }}
-                        onClick={() => navigate("/analysis")}
-                    >
-                        Télécharger une vidéo
-                    </Button>
+                    
 
-                    {user?.role === "admin" && (
-                        <Button
-                            variant="contained"
-                            sx={{ background: "#2563eb", color: "#ffffff", '&:hover': { background: '#1d4ed8' } }}
-                            onClick={() => navigate("/admin")}
-                        >
-                            Panneau d'administration
-                        </Button>
-                    )}
+                    
                 </Box>
 
                 <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))" }}>
