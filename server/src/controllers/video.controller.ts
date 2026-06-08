@@ -387,7 +387,7 @@ export const startInference = async (req: AuthenticatedRequest, res: Response, n
         const jobId = `${videoId}-${Date.now()}`;
         const safeChunkDuration = Number(chunkDuration ?? 5);
 
-        // Immediate response to client
+        // Immediate response to client 
         res.json({
             jobId,
             status: "processing",

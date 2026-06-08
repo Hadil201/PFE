@@ -16,9 +16,9 @@ export class GoogleDriveService {
 
   constructor() {
     this.folderId = process.env.GOOGLE_DRIVE_FOLDER_ID || '';
-    
+
     const auth = new google.auth.GoogleAuth({
-      keyFile: 'path-to-service-account-key.json', // You'll need to set this up
+      keyFile: 'soccer-analysis-493517-89dc06cce2a9.json', // You'll need to set this up
       scopes: ['https://www.googleapis.com/auth/drive.file'],
     });
 
@@ -108,7 +108,7 @@ export class GoogleDriveService {
 
   async listFiles(folderId?: string): Promise<GoogleDriveFile[]> {
     try {
-      const query = folderId 
+      const query = folderId
         ? `'${folderId}' in parents and trashed=false`
         : 'trashed=false';
 

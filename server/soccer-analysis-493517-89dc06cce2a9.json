@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "soccer-analysis-493517",
+  "private_key_id": "89dc06cce2a9835f4c2da07232c5e8e0553bcb03",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDB352OJjhQHz7i\n5dSBXlqRmE8H9mVwbnq8QbateaeR5XzNW9MDXyYgfNJh+K4Q4xAbw/GhdXQ8Sp+t\nLFeZg6ntJtJp0K8dZraNynfwYe939sB0CUfjDus34nxuKZ91d/Roi5KHSZYsx48c\nyJLgASvvCJ6CEvX3p52bDDkD/nOco4rfAgLU1mQr+ay+D3YtEA1qOcY7wHlEpx8l\nPVDvvBSFm5+jEZuwtWxNGk2f7dbdFRlPUvNGRx+O1E1e6ekpIoCWYTm0+GfVtblL\nBpuFfdw5X0ZgnbaxXBKL8/4+HzYlB91NFFFW05p0mq2uH9YSoq1ho8/oux33YHS0\nGNuSXZ1bAgMBAAECggEAJmuFoiNx2nLut/Fa5Q5JPXwlAUtze83xFbiiFou6yP9k\n9Z9iWFM1T4/c81xgRmlxCkeQ7XHEyKPzM9LLQ1ljxeMBJMYdxeJSgBPlI+aMmcX1\nCqnCLL2KoKcKCJzIBHPyo/sw3Q2YrKQZeNdIwAqLZdHb86QFSYBWi+DmtaNpztsD\nN3gxw/x9YTtuZEAQ/dOV8opm78vrK08P6rjIzdMq5gOgOOAuNlqo5mvS5aGeqdNL\n4bx4R4QIxRR+Ne73fY+K0rfGNYreoRKOSilJxEvcXAiKwQiXaJA5DwbmtS7QGxYG\n9yWrU5kmU3+UmwKpBpzEcgJAVWLfWacDantPjL3BFQKBgQD4rQUFS0YHMUnM83K9\nQLi7eQYD5wlTlRqEw8uLdPWIn56uM39xpNdcTRmSAoYHGzqfmcO+jj45kX56/4Y4\nwkSc+rPmakEer+zG4mmQFD33KUQ8n9k+xMBrtVTS2ae5JC++ZKwrDm9eDzdFzlnB\n4n7O4Hl1vGNPtFcbewsnXAR11QKBgQDHlWTVo2FxdHJ7JGXXaKYNIzZuMII5IFyw\nvMrTjSCXzOeuCwGKfizxI/OodNbjeDaDWO3jf7kuMI9DtryCb0Na58fCdQZOBvuC\nTnH6HVEH2HPrnOzyWQwDas/SdqPfUzcHiWVZ3ynXwd2S+JM7on/DDRoGSgs2g6SS\nx6PsQBlubwKBgQCazyOEAzNqQN3f0GLKvKMEWrhK76aXuQgURMvPWpWMY0pmyjp5\nphRIKttTUWzcua/KMfBxDZ5hOllR+wc1CIOsckpSlC1MDFtMCSGMh314A+GuGBkn\ngVcE9pMC3GsU0BlE3ulruIXOOYzAUVEBaZ5l7crPZ+MveGaN/hCYhSllrQKBgBgE\nBAQpCrqqNnRW5uJKt2BxUkVkFOdm24Bw1z8phjh98YrhzCesEyBZISKuHIV2m6im\ndMmhPtkuAq81N+3CEarIpSLjDgUple4SHmjoSi3Vf+1kDqcCzA1FNwiuOf3Pd5my\nkL2FuvU5YL4kpyLP5OvFkdIb6sl+gbkfyLvO4sCFAoGAILi3idVQGdsdzUDUjoSW\nsjIzxyjLwtVhClhLkqXSiHKX+Qq3b7GkR9pZ28dMyAmxokMIpZf+rsaqGrXFu8yT\nwH2GpPBhmaAvMkIRuBdxsH42vPd2V5TUWmycoxzGkx2pedevOV36dWSmEPGF6M5s\nif7W3W7ZMNzQl2q0/SKxaHk=\n-----END PRIVATE KEY-----\n",
+  "client_email": "gdrive@soccer-analysis-493517.iam.gserviceaccount.com",
+  "client_id": "112046446235362966741",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/gdrive%40soccer-analysis-493517.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
