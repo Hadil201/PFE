@@ -2,7 +2,9 @@
   "scripts": {
     "dev": "node scripts/dev.js",
     "dev:server": "ts-node-dev src/server.ts",
-    "db": "mkdir -p temp/mongo-data && ../mongodb-linux-x86_64-debian12-8.0.0/bin/mongod --dbpath temp/mongo-data --bind_ip 127.0.0.1 --port 27017"
+    "db": "mkdir -p temp/mongo-data && ../mongodb-linux-x86_64-debian12-8.0.0/bin/mongod --dbpath temp/mongo-data --bind_ip 127.0.0.1 --port 27017",
+    "build": "tsc",
+    "start": "node dist/server.js"
   },
   "dependencies": {
     "@distube/ytdl-core": "^4.16.12",

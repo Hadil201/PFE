@@ -1,7 +1,7 @@
 import axios from "axios";
 import { clearSession, getToken } from "./authStorage";
 
-const API = "http://localhost:5000/api";
+const API = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 const api = axios.create({ baseURL: API });
 
 api.interceptors.request.use((config) => {
@@ -136,6 +136,11 @@ export const blockUser = async (email: string) => {
 
 export const unblockUser = async (email: string) => {
     const res = await api.patch(`/auth/users/${encodeURIComponent(email)}/unblock`);
+    return res.data;
+};
+
+export const deleteUser = async (email: string) => {
+    const res = await api.delete(`/auth/users/${encodeURIComponent(email)}`);
     return res.data;
 };
 

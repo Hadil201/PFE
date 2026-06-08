@@ -6,6 +6,7 @@ import {
     getUserByEmail,
     isApprovedEmail,
     setUserBlocked,
+    deleteUserByEmail,
     upsertUser,
     type UserRole,
 } from "./auth.store";
@@ -126,6 +127,23 @@ router.patch("/users/:email/unblock", requireAuth, requireAdmin, async (req, res
             return;
         }
         res.json(user);
+    } catch (error) {
+        if (error instanceof Error && error.message.includes("admin")) {
+            res.status(403).json({ message: error.message });
+            return;
+        }
+        next(error);
+    }
+});
+
+router.delete("/users/:email", requireAuth, requireAdmin, async (req, res, next) => {
+    try {
+        const success = await deleteUserByEmail(String(req.params.email));
+        if (!success) {
+            res.status(404).json({ message: "User not found" });
+            return;
+        }
+        res.json({ message: "User deleted successfully" });
     } catch (error) {
         if (error instanceof Error && error.message.includes("admin")) {
             res.status(403).json({ message: error.message });

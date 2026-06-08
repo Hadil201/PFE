@@ -20,10 +20,12 @@ import {
     TableRow,
     TextField,
     Typography,
+    Snackbar,
+    Alert,
 } from "@mui/material";
 import { useEffect, useState } from "react";
-import { Download, Pencil, Plus, Slash, Unlock } from "lucide-react";
-import { blockUser, getAdminUsers, unblockUser, setUserQuota, getAllQuotas, createUser } from "../services/api";
+import { Download, Pencil, Plus, Slash, Unlock, Trash2 } from "lucide-react";
+import { blockUser, getAdminUsers, unblockUser, setUserQuota, getAllQuotas, createUser, deleteUser } from "../services/api";
 import type { AppUser } from "../types/auth";
 
 interface Quota {
@@ -48,6 +50,13 @@ export default function Admin() {
     const [newUser, setNewUser] = useState({ name: "", email: "", role: "user" });
     const [isAddingUser, setIsAddingUser] = useState(false);
     const [addUserError, setAddUserError] = useState("");
+    const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; user?: AppUser }>({ open: false });
+    const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: "success" | "error" }>({
+        open: false,
+        message: "",
+        severity: "success",
+    });
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const loadAdminData = async () => {
         const [usersData, quotasData] = await Promise.all([getAdminUsers(), getAllQuotas()]);
@@ -146,6 +155,29 @@ export default function Admin() {
 
     const handleRestoreDefaults = () => {
         setGlobalQuotaValues({ dailyLimit: 60, weeklyLimit: 500, simultaneousStreams: 30 });
+    };
+
+    const handleDeleteUser = async () => {
+        if (!deleteConfirm.user) return;
+        setIsDeleting(true);
+        try {
+            await deleteUser(deleteConfirm.user.email);
+            setSnackbar({
+                open: true,
+                message: "Utilisateur supprimé avec succès",
+                severity: "success",
+            });
+            await loadAdminData();
+        } catch (error: any) {
+            setSnackbar({
+                open: true,
+                message: error?.response?.data?.message || "Erreur lors de la suppression de l'utilisateur",
+                severity: "error",
+            });
+        } finally {
+            setIsDeleting(false);
+            setDeleteConfirm({ open: false });
+        }
     };
 
     return (
@@ -261,6 +293,18 @@ export default function Admin() {
                                                         disabled={user.role === "admin"}
                                                     >
                                                         {user.blocked ? <Unlock size={16} /> : <Slash size={16} />}
+                                                    </IconButton>
+                                                    <IconButton
+                                                        size="small"
+                                                        sx={{
+                                                            color: "#f87171",
+                                                            border: "1px solid rgba(148, 163, 184, 0.16)",
+                                                            '&:hover': { background: 'rgba(239, 68, 68, 0.06)' },
+                                                        }}
+                                                        onClick={() => setDeleteConfirm({ open: true, user })}
+                                                        disabled={user.role === "admin"}
+                                                    >
+                                                        <Trash2 size={16} />
                                                     </IconButton>
                                                 </Box>
                                             </TableCell>
@@ -414,7 +458,33 @@ export default function Admin() {
                             {isSavingQuota ? "Enregistrement..." : "Enregistrer"}
                         </Button>
                     </DialogActions>
+                    </Dialog>
+
+                <Dialog open={deleteConfirm.open} onClose={() => setDeleteConfirm({ open: false })} maxWidth="xs" fullWidth>
+                    <DialogTitle>Confirmer la suppression</DialogTitle>
+                    <DialogContent>
+                        <Typography>
+                            Êtes-vous sûr de vouloir supprimer l'utilisateur <strong>{deleteConfirm.user?.name}</strong> ({deleteConfirm.user?.email}) ?
+                        </Typography>
+                    </DialogContent>
+                    <DialogActions>
+                        <Button onClick={() => setDeleteConfirm({ open: false })}>Annuler</Button>
+                        <Button onClick={() => void handleDeleteUser()} variant="contained" color="error" disabled={isDeleting}>
+                            {isDeleting ? "Suppression..." : "Supprimer"}
+                        </Button>
+                    </DialogActions>
                 </Dialog>
+
+                <Snackbar
+                    open={snackbar.open}
+                    autoHideDuration={6000}
+                    onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+                    anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+                >
+                    <Alert onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))} severity={snackbar.severity} sx={{ width: "100%" }}>
+                        {snackbar.message}
+                    </Alert>
+                </Snackbar>
             </Box>
         </Layout>
     );

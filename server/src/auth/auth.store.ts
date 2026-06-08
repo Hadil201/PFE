@@ -280,6 +280,19 @@ export const setUserQuota = async (
     return quota;
 };
 
+export const deleteUserByEmail = async (email: string): Promise<boolean> => {
+    const normalized = normalizeEmail(email);
+    const user = await User.findOne({ email: normalized }).exec();
+    if (!user) return false;
+
+    if (user.role === "admin") {
+        throw new Error("Cannot delete an admin user");
+    }
+
+    await User.deleteOne({ email: normalized }).exec();
+    return true;
+};
+
 export const getAllQuotas = async (): Promise<Array<{ email: string } & Quota>> => {
     const users = await User.find({}).sort({ email: 1 }).exec();
     return users.map((user) => ({
