@@ -1,3 +1,16 @@
+// File polyfill for Node versions < 20 (required by undici/fetch)
+if (typeof File === "undefined") {
+    (global as any).File = class File extends Blob {
+        name: string;
+        lastModified: number;
+        constructor(parts: any[], name: string, options?: any) {
+            super(parts, options);
+            this.name = name;
+            this.lastModified = options?.lastModified || Date.now();
+        }
+    };
+}
+
 import "./config/env";
 import app from "./app";
 import { createServer } from "http";
