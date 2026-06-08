@@ -68,8 +68,6 @@ export default function Admin() {
         void loadAdminData();
     }, []);
 
-    const formatCsvCell = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`;
-
     const handleOpenQuotaDialog = (user: AppUser) => {
         const userQuota = quotas.find((q) => q.email.toLowerCase() === user.email.toLowerCase());
         setQuotaValues({

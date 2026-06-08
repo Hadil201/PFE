@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Video } from "../types/video";
 import { getVideos, deleteVideo } from "../services/api";
-import { getUser } from "../services/authStorage";
 import {
     Box,
     Typography,
