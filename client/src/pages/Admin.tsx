@@ -24,7 +24,7 @@ import {
     Alert,
 } from "@mui/material";
 import { useEffect, useState } from "react";
-import { Download, Pencil, Plus, Slash, Unlock, Trash2 } from "lucide-react";
+import { Pencil, Plus, Slash, Unlock, Trash2 } from "lucide-react";
 import { blockUser, getAdminUsers, unblockUser, setUserQuota, getAllQuotas, createUser, deleteUser } from "../services/api";
 import type { AppUser } from "../types/auth";
 
@@ -69,26 +69,6 @@ export default function Admin() {
     }, []);
 
     const formatCsvCell = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`;
-
-    const exportCsv = () => {
-        const headers = ["Username", "Email", "Role", "Status"];
-        const rows = users.map((user) => [
-            formatCsvCell(user.name),
-            formatCsvCell(user.email),
-            formatCsvCell(user.role),
-            formatCsvCell(user.blocked ? "Blocked" : "Active"),
-        ]);
-        const csv = [headers.join(","), ...rows.map((row) => row.join(","))].join("\n");
-        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.setAttribute("download", "admin-users.csv");
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-    };
 
     const handleOpenQuotaDialog = (user: AppUser) => {
         const userQuota = quotas.find((q) => q.email.toLowerCase() === user.email.toLowerCase());

@@ -18,7 +18,6 @@ import Layout from "../components/layout/Layout";
 
 export default function Library() {
     const navigate = useNavigate();
-    const user = getUser();
     const [videos, setVideos] = useState<Video[]>([]);
     const [loading, setLoading] = useState(true);
 

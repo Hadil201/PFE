@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { Box, Typography, Alert, Stack, Button, IconButton } from '@mui/material';
 import ReactPlayer from 'react-player';
 import Hls from 'hls.js';
@@ -96,7 +96,7 @@ export default function VideoPlayer({
 
   return (
     <Box className={`video-player ${className || ''}`} sx={{ width: '100%' }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+      <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
         <Typography variant="h6" sx={{ color: '#f8fafc', fontSize: '1.1rem' }}>
           {title || "Lecteur Vidéo"}
         </Typography>

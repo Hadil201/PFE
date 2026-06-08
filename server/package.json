@@ -42,7 +42,7 @@
   "name": "server",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "dist/server.js",
   "keywords": [],
   "author": "",
   "license": "ISC",

@@ -106,9 +106,17 @@ const serializeVideo = (video: VideoRecord): VideoEntity => {
     return result;
 };
 
-export const getVideos = async (_req: Request, res: Response, next: NextFunction) => {
+export const getVideos = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const videos = await Video.find({}).sort({ createdAt: -1 }).exec();
+        const authReq = req as AuthenticatedRequest;
+        const user = authReq.appUser;
+
+        const filter: any = {};
+        if (user && user.role !== "admin") {
+            filter.ownerEmail = user.email.toLowerCase();
+        }
+
+        const videos = await Video.find(filter).sort({ createdAt: -1 }).exec();
         res.json(videos.map(serializeVideo));
     } catch (error) {
         next(error);
@@ -295,7 +303,10 @@ export const addStream = async (req: AuthenticatedRequest, res: Response, next: 
 
 export const getVideo = async (req: Request, res: Response, next: NextFunction) => {
     try {
+        const authReq = req as AuthenticatedRequest;
+        const user = authReq.appUser;
         const videoId = String(req.params.id ?? "");
+
         if (!Types.ObjectId.isValid(videoId)) {
             res.status(404).json({ message: "Video not found" });
             return;
@@ -307,6 +318,11 @@ export const getVideo = async (req: Request, res: Response, next: NextFunction) 
             return;
         }
 
+        if (user && user.role !== "admin" && video.ownerEmail !== user.email.toLowerCase()) {
+            res.status(403).json({ message: "You don't have permission to access this video" });
+            return;
+        }
+
         res.json(serializeVideo(video));
     } catch (error) {
         next(error);
@@ -315,18 +331,27 @@ export const getVideo = async (req: Request, res: Response, next: NextFunction) 
 
 export const deleteVideo = async (req: Request, res: Response, next: NextFunction) => {
     try {
+        const authReq = req as AuthenticatedRequest;
+        const user = authReq.appUser;
         const videoId = String(req.params.id ?? "");
+
         if (!Types.ObjectId.isValid(videoId)) {
             res.status(404).json({ message: "Video not found" });
             return;
         }
 
-        const result = await Video.deleteOne({ _id: videoId }).exec();
-        if (result.deletedCount === 0) {
+        const video = await Video.findById(videoId).exec();
+        if (!video) {
             res.status(404).json({ message: "Video not found" });
             return;
         }
 
+        if (user && user.role !== "admin" && video.ownerEmail !== user.email.toLowerCase()) {
+            res.status(403).json({ message: "You don't have permission to delete this video" });
+            return;
+        }
+
+        await Video.deleteOne({ _id: videoId }).exec();
         res.json({ message: "deleted" });
     } catch (error) {
         next(error);
@@ -373,16 +398,20 @@ export const startInference = async (req: AuthenticatedRequest, res: Response, n
             return;
         }
 
-        const video = await Video.findByIdAndUpdate(
-            videoId,
-            { $set: { status: "processing" } },
-            { new: true, runValidators: true }
-        ).exec();
+        const video = await Video.findById(videoId).exec();
 
         if (!video) {
             res.status(404).json({ message: "Vidéo introuvable dans la base de données." });
             return;
         }
+
+        if (user.role !== "admin" && video.ownerEmail !== user.email.toLowerCase()) {
+            res.status(403).json({ message: "Vous n'avez pas la permission d'analyser cette vidéo." });
+            return;
+        }
+
+        video.status = "processing";
+        await video.save();
 
         const jobId = `${videoId}-${Date.now()}`;
         const safeChunkDuration = Number(chunkDuration ?? 5);
@@ -539,9 +568,28 @@ export const getAllQuotas = async (_req: Request, res: Response, next: NextFunct
 
 export const saveInferenceResult = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
+        const authReq = req as AuthenticatedRequest;
+        const user = authReq.appUser;
         const videoId = String(req.params.id ?? "");
+        
+        if (!user) {
+            res.status(401).json({ message: "Authentication required" });
+            return;
+        }
+
         if (!Types.ObjectId.isValid(videoId)) {
             res.status(400).json({ message: "Un identifiant vidéo valide est requis." });
+            return;
+        }
+
+        const video = await Video.findById(videoId).exec();
+        if (!video) {
+            res.status(404).json({ message: "Vidéo introuvable dans la base de données." });
+            return;
+        }
+
+        if (user.role !== "admin" && video.ownerEmail !== user.email.toLowerCase()) {
+            res.status(403).json({ message: "Vous n'avez pas la permission de modifier cette vidéo." });
             return;
         }
 
@@ -552,29 +600,20 @@ export const saveInferenceResult = async (req: AuthenticatedRequest, res: Respon
             modelName?: string;
         };
 
-        const video = await Video.findByIdAndUpdate(
-            videoId,
-            {
-                $set: {
-                    status: "done",
-                    "metadata.lastInference": {
-                        jobId: `simulated-${videoId}-${Date.now()}`,
-                        modelName: modelName || "V1",
-                        inferenceType: inferenceType || "action-spotting",
-                        events: timeline || [],
-                        summary: summary || "",
-                        completedAt: new Date(),
-                    },
-                },
+        video.status = "done";
+        video.metadata = {
+            ...video.metadata,
+            lastInference: {
+                jobId: `simulated-${videoId}-${Date.now()}`,
+                modelName: modelName || "V1",
+                inferenceType: inferenceType || "action-spotting",
+                events: timeline || [],
+                summary: summary || "",
+                completedAt: new Date(),
             },
-            { new: true }
-        ).exec();
+        };
 
-        if (!video) {
-            res.status(404).json({ message: "Vidéo introuvable dans la base de données." });
-            return;
-        }
-
+        await video.save();
         res.json(serializeVideo(video));
     } catch (error) {
         next(error);
